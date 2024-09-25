@@ -3,20 +3,29 @@
 This repository provides PromSketch package for Prometheus and VictoriaMetrics.
 
 
-### Install Go
+### Install Dependencies
 ```
 wget https://go.dev/dl/go1.22.4.linux-amd64.tar.gz
 sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.22.4.linux-amd64.tar.gz
 export PATH=$PATH:/usr/local/go/bin
 ```
 
+```
+# installs nvm (Node Version Manager)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
+# download and install Node.js (you may need to restart the terminal)
+nvm install 20
+```
+
 ### Run EHUniv test
 ```
+cd promsketch
 go test -v -timeout 0 -run ^TestExpoHistogramUnivMonOptimizedCAIDA$ github.com/froot/promsketch
 ```
 
 ### Run EHKLL test
 ```
+cd promsketch
 go test -v -timeout 0 -run ^TestCostAnalysisQuantile$ github.com/froot/promsketch
 ```
 
