@@ -5,6 +5,7 @@ This repository provides PromSketch package for Prometheus and VictoriaMetrics.
 
 ### Install Dependencies
 ```
+# installs Golang
 wget https://go.dev/dl/go1.22.4.linux-amd64.tar.gz
 sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.22.4.linux-amd64.tar.gz
 export PATH=$PATH:/usr/local/go/bin
@@ -35,6 +36,9 @@ go test -v -timeout 0 -run ^TestCostAnalysisQuantile$ github.com/froot/promsketc
 git clone git@github.com:zzylol/prometheus.git
 cd prometheus
 go mod tidy
+```
+Compile:
+```
 make build
 ```
 
