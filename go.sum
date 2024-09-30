@@ -99,6 +99,8 @@ github.com/zzylol/VictoriaMetrics v0.0.2-alpha h1:o31hdW6SprTqWSQdnIhE+mw4cb7nPl
 github.com/zzylol/VictoriaMetrics v0.0.2-alpha/go.mod h1:TCqwlQKfqETQwVh4WDTJ/fV3feh3WmOa46yw2f4iePg=
 github.com/zzylol/go-kll v0.0.0-20240604180517-e15a688e6ebe h1:559sShIAZzwmW38T8gwDnZt4pPEtkyOIB8GzqkZPk50=
 github.com/zzylol/go-kll v0.0.0-20240604180517-e15a688e6ebe/go.mod h1:yBYzN7orOcqHVW7NcjYS/K90f4bOuXr4OkhsadygrnM=
+github.com/zzylol/metricsql v0.1.1 h1:Wk/7O7gdjF7b1LTCT81Rd6Gcx/e3lTSB7n1zttR8V1o=
+github.com/zzylol/metricsql v0.1.1/go.mod h1:lQFUrqsayuRxjK812eEyf6sNyrfRImTmBHtPrAWySu8=
 github.com/zzylol/prometheus-sketches v0.0.0-20240930201432-bcde765c4f02 h1:NgPzXSFzw2uikDqAgMiAArVMPvhBPO6ZGqUqXzqZnLo=
 github.com/zzylol/prometheus-sketches v0.0.0-20240930201432-bcde765c4f02/go.mod h1:YuGgKUrT5v0eW4QOcPeZIBG38LSC8NqTMKwZRLnoSUc=
 go.uber.org/atomic v1.11.0 h1:ZvwS0R+56ePWxUNi+Atn9dWONBPp/AUETXlHW0DxSjE=
