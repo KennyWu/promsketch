@@ -33,8 +33,8 @@ go test -v -timeout 0 -run ^TestCostAnalysisQuantile$ github.com/froot/promsketc
 ### Integration with Prometheus
 
 ```
-git clone git@github.com:zzylol/prometheus.git
-cd prometheus
+git clone git@github.com:zzylol/prometheus-sketches.git
+cd prometheus-sketches
 go mod tidy
 ```
 Compile:

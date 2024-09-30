@@ -13,7 +13,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/spaolacci/murmur3 v1.1.0
 	github.com/stretchr/testify v1.9.0
-	github.com/zzylol/VictoriaMetrics v0.0.1-beta
+	github.com/zzylol/VictoriaMetrics v0.0.2-alpha
 	github.com/zzylol/go-kll v0.0.0-20240604180517-e15a688e6ebe
 	github.com/zzylol/prometheus-sketches v0.0.0-20240930201432-bcde765c4f02
 )
