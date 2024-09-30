@@ -8,8 +8,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/prometheus/prometheus/model/labels"
-	"github.com/prometheus/prometheus/util/annotations"
+	"github.com/zzylol/prometheus-sketches/model/labels"
+	"github.com/zzylol/prometheus-sketches/util/annotations"
 )
 
 const (

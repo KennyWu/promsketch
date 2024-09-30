@@ -15,6 +15,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/zzylol/VictoriaMetrics v0.0.1-beta
 	github.com/zzylol/go-kll v0.0.0-20240604180517-e15a688e6ebe
+	github.com/zzylol/prometheus-sketches v0.0.0-20240930201432-bcde765c4f02
 )
 
 require (
@@ -44,7 +45,6 @@ require (
 	github.com/valyala/histogram v1.2.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	golang.org/x/sys v0.25.0 // indirect
-	golang.org/x/text v0.18.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

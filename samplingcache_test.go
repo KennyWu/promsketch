@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/prometheus/prometheus/model/labels"
 	"github.com/stretchr/testify/require"
+	"github.com/zzylol/prometheus-sketches/model/labels"
 )
 
 func TestSamplingCache(t *testing.T) {
