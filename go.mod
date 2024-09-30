@@ -9,19 +9,19 @@ require (
 	github.com/cespare/xxhash v1.1.0
 	github.com/google/gopacket v1.1.19
 	github.com/praserx/ipconv v1.2.2
+	github.com/prometheus/prometheus v0.54.1
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/spaolacci/murmur3 v1.1.0
 	github.com/stretchr/testify v1.9.0
-	github.com/zzylol/VictoriaMetrics-sketches v0.1.0
+	github.com/zzylol/VictoriaMetrics v0.0.1-beta
 	github.com/zzylol/go-kll v0.0.0-20240604180517-e15a688e6ebe
-	github.com/zzylol/prometheus-sketch-VLDB/prometheus-sketches v0.0.0-20240925181500-c0af1371b7cd
-	github.com/zzylol/prometheus-sketch-VLDB/uniform-sampling-caching/prometheus v0.0.0-20240925181500-c0af1371b7cd
 )
 
 require (
 	github.com/VictoriaMetrics/easyproto v0.1.4 // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.2 // indirect
 	github.com/VictoriaMetrics/metrics v1.35.1 // indirect
+	github.com/VictoriaMetrics/metricsql v0.79.0 // indirect
 	github.com/bits-and-blooms/bitset v1.14.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
@@ -43,8 +43,8 @@ require (
 	github.com/valyala/gozstd v1.21.1 // indirect
 	github.com/valyala/histogram v1.2.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	github.com/zzylol/metricsql v0.1.1 // indirect
 	golang.org/x/sys v0.25.0 // indirect
+	golang.org/x/text v0.18.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
