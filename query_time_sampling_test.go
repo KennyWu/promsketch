@@ -37,28 +37,27 @@ func TestQueryTimeSampling(t *testing.T) {
 			t2 := make([]int64, 0)
 			t1 = append(t1, query_window_size/3)
 			t2 = append(t2, query_window_size/3*2)
-			/*
-				t1 = append(t1, int64(0))
-				t2 = append(t2, query_window_size-1)
 
-				for i := 1; i <= 10; i++ {
-					t1 = append(t1, query_window_size/10*int64(i-1))
-					t2 = append(t2, query_window_size/10*int64(i)-1)
-				}
+			t1 = append(t1, int64(0))
+			t2 = append(t2, query_window_size-1)
 
-				start_t := t1[len(t1)-1]
+			for i := 1; i <= 10; i++ {
+				t1 = append(t1, query_window_size/10*int64(i-1))
+				t2 = append(t2, query_window_size/10*int64(i)-1)
+			}
 
-				for i := 1; i <= 10; i++ {
-					t1 = append(t1, start_t+query_window_size/10/10*int64(i-1))
-					t2 = append(t2, start_t+query_window_size/10/10*int64(i)-1)
-				}
+			start_t := t1[len(t1)-1]
 
-				start_t = t1[len(t1)-1]
-				for i := 1; i <= 10; i++ {
-					t1 = append(t1, start_t+query_window_size/10/10/10*int64(i-1))
-					t2 = append(t2, start_t+query_window_size/10/10/10*int64(i)-1)
-				}
-			*/
+			for i := 1; i <= 10; i++ {
+				t1 = append(t1, start_t+query_window_size/10/10*int64(i-1))
+				t2 = append(t2, start_t+query_window_size/10/10*int64(i)-1)
+			}
+
+			start_t = t1[len(t1)-1]
+			for i := 1; i <= 10; i++ {
+				t1 = append(t1, start_t+query_window_size/10/10/10*int64(i-1))
+				t2 = append(t2, start_t+query_window_size/10/10/10*int64(i)-1)
+			}
 
 			fmt.Fprintln(w, "t1:", t1)
 			fmt.Fprintln(w, "t2:", t2)
