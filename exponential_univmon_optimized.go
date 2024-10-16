@@ -14,21 +14,35 @@ import (
 	"github.com/RoaringBitmap/roaring/v2"
 )
 
-type EHArray struct {
+type EHMap struct {
 	min_idx     int
 	max_idx     int
 	max_time    int64
 	min_time    int64
 	bucket_size int
+	l22         float64
+	m           map[float64]int64
 }
 
-func NewArray() *EHArray {
-	return &EHArray{
+func NewMap() *EHMap {
+	return &EHMap{
 		min_idx:     0,
 		max_idx:     0,
 		max_time:    0,
 		min_time:    0,
 		bucket_size: 0,
+		l22:         0,
+		m:           make(map[float64]int64),
+	}
+}
+
+func MergeMaps(m1 *EHMap, m2 *EHMap) {
+	for k, v := range m2.m {
+		if _, ok := (m1.m)[k]; !ok {
+			m1.m[k] = v
+		} else {
+			m1.m[k] += v
+		}
 	}
 }
 
@@ -37,12 +51,11 @@ type ExpoHistogramUnivOptimized struct {
 	cs_seed2         []uint32
 	seed3            uint32
 	s_count          int           // sketch count
-	arr_count        int           // array count
+	map_count        int           // array count
 	univs            []*UnivSketch // larger bucket is a univsketch
-	array_buckets    []*EHArray    // smaller bucket is exact, storing all samples
-	array            []float64     // array part, use one array
-	max_array_size   int
-	min_array_size   int
+	map_buckets      []*EHMap      // smaller bucket is exact, storing all samples
+	max_map_size     int
+	min_map_size     int
 	k                int64
 	time_window_size int64
 	univPool         UnivSketchPool
@@ -61,13 +74,12 @@ func ExpoInitUnivOptimized(k int64, time_window_size int64) (ehu *ExpoHistogramU
 	ehu = &ExpoHistogramUnivOptimized{
 		k:                k,
 		s_count:          0,
-		arr_count:        0,
-		max_array_size:   30720,
-		min_array_size:   1,
+		map_count:        0,
+		max_map_size:     30720,
+		min_map_size:     1,
 		time_window_size: time_window_size,
 		univs:            make([]*UnivSketch, 0),
-		array:            make([]float64, 0),
-		array_buckets:    make([]*EHArray, 0),
+		map_buckets:      make([]*EHMap, 0),
 	}
 
 	ehu.putch = make(chan int64, 100)
@@ -201,7 +213,17 @@ func (ehu *ExpoHistogramUnivOptimized) PutUnivSketch(u *UnivSketch) error {
 	return nil
 }
 
+func (ehu *ExpoHistogramUnivOptimized) calc_l22(eh_arr_bucket *EHMap) float64 {
+	var l2 float64 = 0
+	for _, v := range eh_arr_bucket.m {
+		l2 += float64(v * v)
+	}
+	return l2
+}
+
 func (ehu *ExpoHistogramUnivOptimized) Update(time_ int64, fvalue float64) {
+
+	// ehu.print_buckets()
 
 	ehu.mutex.Lock()
 	removed := 0
@@ -222,8 +244,8 @@ func (ehu *ExpoHistogramUnivOptimized) Update(time_ int64, fvalue float64) {
 	}
 
 	removed = 0
-	for i := 0; i < ehu.arr_count; i++ {
-		if ehu.array_buckets[i].max_time < time_-ehu.time_window_size {
+	for i := 0; i < ehu.map_count; i++ {
+		if ehu.map_buckets[i].max_time < time_-ehu.time_window_size {
 			removed++
 		} else {
 			break
@@ -232,66 +254,56 @@ func (ehu *ExpoHistogramUnivOptimized) Update(time_ int64, fvalue float64) {
 
 	if removed > 0 {
 
-		for l := removed; l < ehu.arr_count; l++ {
-			ehu.array_buckets[l].min_idx -= ehu.array_buckets[removed-1].max_idx - 1
-			ehu.array_buckets[l].max_idx -= ehu.array_buckets[removed-1].max_idx - 1
+		for l := removed; l < ehu.map_count; l++ {
+			ehu.map_buckets[l].min_idx -= ehu.map_buckets[removed-1].max_idx - 1
+			ehu.map_buckets[l].max_idx -= ehu.map_buckets[removed-1].max_idx - 1
 		}
 
-		ehu.array = ehu.array[ehu.array_buckets[removed-1].max_idx+1:]
-		ehu.arr_count = ehu.arr_count - removed
-		ehu.array_buckets = ehu.array_buckets[removed:]
+		ehu.map_count = ehu.map_count - removed
+		ehu.map_buckets = ehu.map_buckets[removed:]
 	}
 
 	// add value to new EH bucket (array)
-	if ehu.arr_count > 0 && ehu.array_buckets[ehu.arr_count-1].bucket_size < ehu.min_array_size {
-		ehu.array = append(ehu.array, fvalue)
-		ehu.array_buckets[ehu.arr_count-1].max_time = time_
-		ehu.array_buckets[ehu.arr_count-1].bucket_size += 1
-		ehu.array_buckets[ehu.arr_count-1].max_idx = len(ehu.array) - 1
-	} else {
-		ehu.array = append(ehu.array, fvalue)
-		tmp_arr := NewArray()
-		tmp_arr.max_time, tmp_arr.min_time = time_, time_
-		tmp_arr.min_idx, tmp_arr.max_idx = len(ehu.array)-1, len(ehu.array)-1
-		tmp_arr.bucket_size = 1
-		ehu.array_buckets = append(ehu.array_buckets, tmp_arr)
-		ehu.arr_count++
-	}
-	// fmt.Println(ehu.array_buckets[0].bucket_size, ehu.array_buckets[0].min_idx, ehu.array_buckets[0].max_idx)
-
-	// Merge EH buckets (array)
-	same_size_bucket := 1
-	for i := ehu.arr_count - 2; i >= 0; i-- {
-		if ehu.array_buckets[i].bucket_size == ehu.array_buckets[i+1].bucket_size {
-			same_size_bucket += 1
+	if ehu.map_count > 0 && ehu.map_buckets[ehu.map_count-1].bucket_size < ehu.min_map_size {
+		if v, ok := ehu.map_buckets[ehu.map_count-1].m[fvalue]; !ok {
+			ehu.map_buckets[ehu.map_count-1].m[fvalue] = 1
+			ehu.map_buckets[ehu.map_count-1].l22 += 1
 		} else {
-			if float64(same_size_bucket) >= float64(ehu.k)/2.0+2 {
-				ehu.array_buckets[i+1].bucket_size += ehu.array_buckets[i+2].bucket_size
-				ehu.array_buckets[i+1].max_time = MaxInt64(ehu.array_buckets[i+1].max_time, ehu.array_buckets[i+2].max_time)
-				ehu.array_buckets[i+1].min_time = MinInt64(ehu.array_buckets[i+1].min_time, ehu.array_buckets[i+2].min_time)
-				ehu.array_buckets[i+1].max_idx = ehu.array_buckets[i+2].max_idx
-				ehu.array_buckets[i+2] = nil
-				ehu.array_buckets = append(ehu.array_buckets[:i+2], ehu.array_buckets[i+3:]...)
-				ehu.arr_count -= 1
-			}
-			same_size_bucket = 1
-			if ehu.array_buckets[i+1].bucket_size == ehu.array_buckets[i].bucket_size {
-				same_size_bucket += 1
-			}
+			ehu.map_buckets[ehu.map_count-1].m[fvalue] += 1
+			ehu.map_buckets[ehu.map_count-1].l22 += 2*float64(v) + 1 // incremental update
+		}
+
+		ehu.map_buckets[ehu.map_count-1].max_time = time_
+		ehu.map_buckets[ehu.map_count-1].bucket_size += 1
+
+	} else {
+		tmp_map := NewMap()
+		tmp_map.max_time, tmp_map.min_time = time_, time_
+		tmp_map.bucket_size = 1
+		tmp_map.l22 = 1
+		tmp_map.m[fvalue] = 1
+		ehu.map_buckets = append(ehu.map_buckets, tmp_map)
+		ehu.map_count++
+	}
+	// fmt.Println(ehu.map_buckets[0].bucket_size, ehu.map_buckets[0].min_idx, ehu.map_buckets[0].max_idx)
+
+	// Merge EH buckets (maps)
+	sum_l22 := float64(0)
+	for i := ehu.map_count - 2; i >= 0; i-- {
+		if ehu.map_buckets[i].l22+ehu.map_buckets[i+1].l22 <= 1/float64(ehu.k)*sum_l22 {
+			ehu.map_buckets[i].bucket_size += ehu.map_buckets[i+1].bucket_size
+			ehu.map_buckets[i].max_time = ehu.map_buckets[i+1].max_time
+			MergeMaps(ehu.map_buckets[i], ehu.map_buckets[i+1])
+			ehu.map_buckets[i+1] = nil
+			ehu.map_buckets = append(ehu.map_buckets[:i+1], ehu.map_buckets[i+2:]...)
+			ehu.map_count -= 1
+			ehu.map_buckets[i].l22 = ehu.calc_l22(ehu.map_buckets[i])
+		} else {
+			sum_l22 += ehu.map_buckets[i+1].l22
 		}
 	}
 
-	if float64(same_size_bucket) >= float64(ehu.k)/2.0+2 {
-		ehu.array_buckets[0].bucket_size += ehu.array_buckets[1].bucket_size
-		ehu.array_buckets[0].max_time = MaxInt64(ehu.array_buckets[0].max_time, ehu.array_buckets[1].max_time)
-		ehu.array_buckets[0].min_time = MinInt64(ehu.array_buckets[0].min_time, ehu.array_buckets[1].min_time)
-		ehu.array_buckets[0].max_idx = ehu.array_buckets[1].max_idx
-		ehu.array_buckets[1] = nil
-		ehu.array_buckets = append(ehu.array_buckets[:1], ehu.array_buckets[2:]...)
-		ehu.arr_count -= 1
-	}
-
-	if ehu.array_buckets[0].bucket_size >= ehu.max_array_size {
+	if ehu.map_buckets[0].bucket_size >= ehu.max_map_size {
 		// only under this, we may need to merge univmons
 
 		// change oldest array into univmon
@@ -304,61 +316,37 @@ func (ehu *ExpoHistogramUnivOptimized) Update(time_ int64, fvalue float64) {
 			return
 		}
 
-		tmp.max_time, tmp.min_time = ehu.array_buckets[0].max_time, ehu.array_buckets[0].min_time
+		tmp.max_time, tmp.min_time = ehu.map_buckets[0].max_time, ehu.map_buckets[0].min_time
 		ehu.univs = append(ehu.univs, tmp)
 
-		for i := ehu.array_buckets[0].min_idx; i <= ehu.array_buckets[0].max_idx; i++ {
-			value := strconv.FormatFloat(ehu.array[i], 'f', -1, 64)
+		for k, v := range ehu.map_buckets[0].m {
+			value := strconv.FormatFloat(k, 'f', -1, 64)
 			hash := xxhash.ChecksumString64S(value, uint64(tmp.seed))
 			bottom_layer_num := findBottomLayerNum(hash, CS_LVLS)
 			pos, sign := ehu.univs[0].cs_layers[0].position_and_sign([]byte(value))
-			ehu.univs[ehu.s_count].univmon_processing_optimized(value, 1, bottom_layer_num, &pos, &sign)
+			ehu.univs[ehu.s_count].univmon_processing_optimized(value, v, bottom_layer_num, &pos, &sign)
 		}
+
 		ehu.s_count++
 
-		ehu.array = ehu.array[ehu.array_buckets[0].max_idx+1:]
-		for l := 1; l < ehu.arr_count; l++ {
-			ehu.array_buckets[l].min_idx -= ehu.array_buckets[0].max_idx - 1
-			ehu.array_buckets[l].max_idx -= ehu.array_buckets[0].max_idx - 1
-		}
-		ehu.array_buckets = ehu.array_buckets[1:]
-		ehu.arr_count -= 1
+		ehu.map_buckets[0] = nil
+		ehu.map_buckets = ehu.map_buckets[1:]
+		ehu.map_count -= 1
 
 		// Merge EH buckets (univmon)
-		same_size_bucket = 1
 		for i := ehu.s_count - 2; i >= 0; i-- {
-			if ehu.univs[i].bucket_size == ehu.univs[i+1].bucket_size {
-				same_size_bucket += 1
+			if ehu.univs[i].cs_layers[0].cs_l22()+ehu.univs[i+1].cs_layers[0].cs_l22() <= 1/float64(ehu.k)*sum_l22 {
+				ehu.univs[i].MergeWith(ehu.univs[i+1])
+				ehu.univs[i].bucket_size += ehu.univs[i+1].bucket_size
+				ehu.univs[i].max_time = MaxInt64(ehu.univs[i].max_time, ehu.univs[i+1].max_time)
+				ehu.univs[i].min_time = MinInt64(ehu.univs[i].min_time, ehu.univs[i+1].min_time)
+				ehu.PutUnivSketch(ehu.univs[i+1])
+				ehu.univs[i+1] = nil
+				ehu.univs = append(ehu.univs[:i+1], ehu.univs[i+2:]...)
+				ehu.s_count -= 1
 			} else {
-				if float64(same_size_bucket) >= float64(ehu.k)/2.0+2 {
-
-					ehu.univs[i+1].MergeWith(ehu.univs[i+2])
-
-					ehu.univs[i+1].bucket_size += ehu.univs[i+2].bucket_size
-					ehu.univs[i+1].max_time = MaxInt64(ehu.univs[i+1].max_time, ehu.univs[i+2].max_time)
-					ehu.univs[i+1].min_time = MinInt64(ehu.univs[i+1].min_time, ehu.univs[i+2].min_time)
-					ehu.PutUnivSketch(ehu.univs[i+2])
-					ehu.univs[i+2] = nil
-					ehu.univs = append(ehu.univs[:i+2], ehu.univs[i+3:]...)
-					ehu.s_count -= 1
-
-				}
-				same_size_bucket = 1
-				if ehu.univs[i+1].bucket_size == ehu.univs[i].bucket_size {
-					same_size_bucket += 1
-				}
+				sum_l22 += ehu.univs[i+1].cs_layers[0].cs_l22()
 			}
-		}
-
-		if float64(same_size_bucket) >= float64(ehu.k)/2.0+2 {
-			ehu.univs[0].MergeWith(ehu.univs[1])
-			ehu.univs[0].bucket_size += ehu.univs[1].bucket_size
-			ehu.univs[0].max_time = MaxInt64(ehu.univs[0].max_time, ehu.univs[1].max_time)
-			ehu.univs[0].min_time = MinInt64(ehu.univs[0].min_time, ehu.univs[1].min_time)
-			ehu.PutUnivSketch(ehu.univs[1])
-			ehu.univs[1] = nil
-			ehu.univs = append(ehu.univs[:1], ehu.univs[2:]...)
-			ehu.s_count -= 1
 		}
 	}
 
@@ -368,17 +356,17 @@ func (ehu *ExpoHistogramUnivOptimized) Update(time_ int64, fvalue float64) {
 
 func (eh *ExpoHistogramUnivOptimized) Cover(mint, maxt int64) bool {
 	eh.mutex.RLock()
-	if eh.s_count+eh.arr_count == 0 {
+	if eh.s_count+eh.map_count == 0 {
 		eh.mutex.RUnlock()
 		return false
 	}
 
-	mint_time := eh.array_buckets[0].min_time
+	mint_time := eh.map_buckets[0].min_time
 	if eh.s_count > 0 {
 		mint_time = eh.univs[0].min_time
 	}
-	// fmt.Println("EHoptimized Cover:", mint, maxt, mint_time, eh.array[eh.arr_count-1].max_time)
-	maxt_covered := (eh.array_buckets[eh.arr_count-1].max_time >= maxt)
+	// fmt.Println("EHoptimized Cover:", mint, maxt, mint_time, eh.array[eh.map_count-1].max_time)
+	maxt_covered := (eh.map_buckets[eh.map_count-1].max_time >= maxt)
 	mint_covered := (mint_time <= mint)
 	isCovered := mint_covered && maxt_covered
 	eh.mutex.RUnlock()
@@ -386,10 +374,10 @@ func (eh *ExpoHistogramUnivOptimized) Cover(mint, maxt int64) bool {
 }
 
 func (eh *ExpoHistogramUnivOptimized) GetMaxTime() int64 {
-	if eh.s_count+eh.arr_count == 0 {
+	if eh.s_count+eh.map_count == 0 {
 		return -1
 	}
-	return eh.array_buckets[eh.arr_count-1].max_time
+	return eh.map_buckets[eh.map_count-1].max_time
 }
 
 func (ehu *ExpoHistogramUnivOptimized) print_buckets() {
@@ -398,9 +386,9 @@ func (ehu *ExpoHistogramUnivOptimized) print_buckets() {
 	for i := 0; i < ehu.s_count; i++ {
 		fmt.Println(i, ehu.univs[i].min_time, ehu.univs[i].max_time, ehu.univs[i].bucket_size)
 	}
-	fmt.Println("arr_count =", ehu.arr_count)
-	for i := 0; i < ehu.arr_count; i++ {
-		fmt.Println(i, ehu.array_buckets[i].min_time, ehu.array_buckets[i].max_time, ehu.array_buckets[i].bucket_size)
+	fmt.Println("map_count =", ehu.map_count)
+	for i := 0; i < ehu.map_count; i++ {
+		fmt.Println(i, ehu.map_buckets[i].min_time, ehu.map_buckets[i].max_time, ehu.map_buckets[i].bucket_size)
 	}
 }
 
@@ -410,7 +398,9 @@ func (eh *ExpoHistogramUnivOptimized) GetMemoryKB() float64 {
 		total_mem += eh.univs[i].GetMemoryKBPyramid()
 	}
 
-	total_mem += float64(len(eh.array)*8) / 1024
+	for i := 0; i < eh.map_count; i++ {
+		total_mem += float64(len(eh.map_buckets[i].m)) * 16 / 1024
+	}
 
 	return total_mem
 }
@@ -420,13 +410,13 @@ func (eh *ExpoHistogramUnivOptimized) GetTotalBucketSizes() int64 {
 	for i := 0; i < eh.s_count; i++ {
 		total_bucket_size += eh.univs[i].bucket_size
 	}
-	for i := 0; i < eh.arr_count; i++ {
-		total_bucket_size += int64((eh.array_buckets[i].bucket_size))
+	for i := 0; i < eh.map_count; i++ {
+		total_bucket_size += int64((eh.map_buckets[i].bucket_size))
 	}
 	return total_bucket_size
 }
 
-func (ehu *ExpoHistogramUnivOptimized) QueryIntervalMergeUniv(t1, t2 int64, cur_t int64) (univ *UnivSketch, arr *[]float64, err error) {
+func (ehu *ExpoHistogramUnivOptimized) QueryIntervalMergeUniv(t1, t2 int64, cur_t int64) (univ *UnivSketch, m *map[float64]int64, n float64, err error) {
 	var from_bucket, to_bucket int = 0, 0
 	ehu.mutex.RLock()
 
@@ -447,22 +437,22 @@ func (ehu *ExpoHistogramUnivOptimized) QueryIntervalMergeUniv(t1, t2 int64, cur_
 		}
 	}
 
-	for i := 0; i < ehu.arr_count; i++ {
-		if t1 >= ehu.array_buckets[i].min_time && t1 <= ehu.array_buckets[i].max_time {
+	for i := 0; i < ehu.map_count; i++ {
+		if t1 >= ehu.map_buckets[i].min_time && t1 <= ehu.map_buckets[i].max_time {
 			from_bucket = i + ehu.s_count
 			break
 		}
 	}
 
-	for i := 0; i < ehu.arr_count; i++ {
-		if t2 >= ehu.array_buckets[i].min_time && t2 <= ehu.array_buckets[i].max_time {
+	for i := 0; i < ehu.map_count; i++ {
+		if t2 >= ehu.map_buckets[i].min_time && t2 <= ehu.map_buckets[i].max_time {
 			to_bucket = i + ehu.s_count
 			break
 		}
 	}
 
-	if t2 > ehu.array_buckets[ehu.arr_count-1].max_time {
-		to_bucket = ehu.arr_count - 1 + ehu.s_count
+	if t2 > ehu.map_buckets[ehu.map_count-1].max_time {
+		to_bucket = ehu.map_count - 1 + ehu.s_count
 	}
 	if ehu.s_count > 0 && t1 < ehu.univs[0].min_time {
 		from_bucket = 0
@@ -473,12 +463,12 @@ func (ehu *ExpoHistogramUnivOptimized) QueryIntervalMergeUniv(t1, t2 int64, cur_
 			from_bucket += 1
 		}
 	} else {
-		if AbsInt64(t1-ehu.array_buckets[from_bucket-ehu.s_count].min_time) > AbsInt64(t1-ehu.array_buckets[from_bucket-ehu.s_count].max_time) {
+		if AbsInt64(t1-ehu.map_buckets[from_bucket-ehu.s_count].min_time) > AbsInt64(t1-ehu.map_buckets[from_bucket-ehu.s_count].max_time) {
 			from_bucket += 1
 		}
 	}
 
-	// fmt.Println("s_count =", ehu.s_count, "arr_count =", ehu.arr_count, "total =", ehu.s_count+ehu.arr_count)
+	// fmt.Println("s_count =", ehu.s_count, "map_count =", ehu.map_count, "total =", ehu.s_count+ehu.map_count)
 	// fmt.Println("from_bucket =", from_bucket)
 	// fmt.Println("to_bucket =", to_bucket)
 
@@ -491,19 +481,28 @@ func (ehu *ExpoHistogramUnivOptimized) QueryIntervalMergeUniv(t1, t2 int64, cur_
 				merged_univ.bucket_size += ehu.univs[i].bucket_size
 			}
 			ehu.mutex.RUnlock()
-			return merged_univ, nil, nil
+			return merged_univ, nil, 0, nil
 		} else {
 			ehu.mutex.RUnlock()
-			return ehu.univs[from_bucket], nil, nil
+			return ehu.univs[from_bucket], nil, 0, nil
 		}
 	} else if from_bucket >= ehu.s_count {
-		// only in array part
-		samples := make([]float64, 0)
-		for i := ehu.array_buckets[from_bucket-ehu.s_count].min_idx; i <= ehu.array_buckets[to_bucket-ehu.s_count].max_idx; i++ {
-			samples = append(samples, ehu.array[i])
+		// only in map part
+		m := make(map[float64]int64)
+		total_item := float64(0)
+		for i := from_bucket - ehu.s_count; i <= to_bucket-ehu.s_count; i++ {
+			for k, v := range ehu.map_buckets[i].m {
+				if _, ok := m[k]; !ok {
+					m[k] = v
+				} else {
+					m[k] += v
+				}
+			}
+			total_item += float64(ehu.map_buckets[i].bucket_size)
 		}
+
 		ehu.mutex.RUnlock()
-		return nil, &samples, nil
+		return nil, &m, total_item, nil
 	} else {
 		// merge univ and array
 		merged_univ, _ := NewUnivSketchPyramid(TOPK_SIZE, CS_ROW_NO_Univ_ELEPHANT, CS_COL_NO_Univ_ELEPHANT, CS_LVLS, ehu.cs_seed1, ehu.cs_seed2, ehu.seed3, -1)
@@ -513,11 +512,13 @@ func (ehu *ExpoHistogramUnivOptimized) QueryIntervalMergeUniv(t1, t2 int64, cur_
 		}
 
 		tmp := make(map[float64]int64)
-		for i := ehu.array_buckets[0].min_idx; i <= ehu.array_buckets[to_bucket-ehu.s_count].max_idx; i++ {
-			if _, ok := tmp[ehu.array[i]]; !ok {
-				tmp[ehu.array[i]] = 1
-			} else {
-				tmp[ehu.array[i]] += 1
+		for i := 0; i < ehu.map_count; i++ {
+			for k, v := range ehu.map_buckets[i].m {
+				if _, ok := tmp[k]; !ok {
+					tmp[k] = v
+				} else {
+					tmp[k] += v
+				}
 			}
 		}
 
@@ -529,6 +530,6 @@ func (ehu *ExpoHistogramUnivOptimized) QueryIntervalMergeUniv(t1, t2 int64, cur_
 			merged_univ.univmon_processing_optimized(value, v, bottom_layer_num, &pos, &sign)
 		}
 		ehu.mutex.RUnlock()
-		return merged_univ, nil, nil
+		return merged_univ, nil, 0, nil
 	}
 }

@@ -44,6 +44,16 @@ func calc_entropy(values *[]float64) float64 {
 	return entropy
 }
 
+func calc_entropy_map(m *map[float64]int64, n float64) float64 {
+	var entropy float64 = 0
+	for _, v := range *m {
+		entropy += float64(v) * math.Log2(float64(v))
+	}
+
+	entropy = math.Log2(n) - entropy/n
+	return entropy
+}
+
 func calc_l1(values *[]float64) float64 {
 	m := make(map[float64]int)
 	for _, v := range *values {
@@ -62,6 +72,15 @@ func calc_l1(values *[]float64) float64 {
 	return l1
 }
 
+func calc_l1_map(m *map[float64]int64) float64 {
+	var l1 float64 = 0
+	for _, v := range *m {
+		l1 += float64(v)
+	}
+
+	return l1
+}
+
 func calc_distinct(values *[]float64) float64 {
 	m := make(map[float64]int)
 	for _, v := range *values {
@@ -72,6 +91,11 @@ func calc_distinct(values *[]float64) float64 {
 		}
 	}
 	distinct := float64(len(m))
+	return distinct
+}
+
+func calc_distinct_map(m *map[float64]int64) float64 {
+	distinct := float64(len(*m))
 	return distinct
 }
 
@@ -86,6 +110,16 @@ func calc_l2(values *[]float64) float64 {
 	}
 	var l2 float64 = 0
 	for _, v := range m {
+		l2 += float64(v * v)
+	}
+
+	l2 = math.Sqrt(l2)
+	return l2
+}
+
+func calc_l2_map(m *map[float64]int64) float64 {
+	var l2 float64 = 0
+	for _, v := range *m {
 		l2 += float64(v * v)
 	}
 
@@ -152,16 +186,16 @@ func funcStdvarOverTime(ctx context.Context, series *memSeries, c float64, t1, t
 }
 
 func funcEntropyOverTime(ctx context.Context, series *memSeries, c float64, t1, t2, t int64) Vector {
-	merged_univ, samples, err := series.sketchInstances.ehuniv.QueryIntervalMergeUniv(t-t2, t-t1, t)
+	merged_univ, m, n, err := series.sketchInstances.ehuniv.QueryIntervalMergeUniv(t-t2, t-t1, t)
 	if err != nil {
 		return make(Vector, 0)
 	}
 
 	var entropy float64 = 0
-	if merged_univ != nil && samples == nil {
+	if merged_univ != nil && m == nil {
 		entropy = merged_univ.calcEntropy()
 	} else {
-		entropy = calc_entropy(samples)
+		entropy = calc_entropy_map(m, n)
 	}
 
 	return Vector{Sample{
@@ -170,15 +204,15 @@ func funcEntropyOverTime(ctx context.Context, series *memSeries, c float64, t1, 
 }
 
 func funcCardOverTime(ctx context.Context, series *memSeries, c float64, t1, t2, t int64) Vector {
-	merged_univ, samples, err := series.sketchInstances.ehuniv.QueryIntervalMergeUniv(t-t2, t-t1, t)
+	merged_univ, m, _, err := series.sketchInstances.ehuniv.QueryIntervalMergeUniv(t-t2, t-t1, t)
 	if err != nil {
 		return make(Vector, 0)
 	}
 	var card float64 = 0
-	if merged_univ != nil && samples == nil {
+	if merged_univ != nil && m == nil {
 		card = merged_univ.calcCard()
 	} else {
-		card = calc_distinct(samples)
+		card = calc_distinct_map(m)
 	}
 	return Vector{Sample{
 		F: card,
@@ -186,15 +220,15 @@ func funcCardOverTime(ctx context.Context, series *memSeries, c float64, t1, t2,
 }
 
 func funcL1OverTime(ctx context.Context, series *memSeries, c float64, t1, t2, t int64) Vector {
-	merged_univ, samples, err := series.sketchInstances.ehuniv.QueryIntervalMergeUniv(t-t2, t-t1, t)
+	merged_univ, m, _, err := series.sketchInstances.ehuniv.QueryIntervalMergeUniv(t-t2, t-t1, t)
 	if err != nil {
 		return make(Vector, 0)
 	}
 	var l1 float64 = 0
-	if merged_univ != nil && samples == nil {
+	if merged_univ != nil && m == nil {
 		l1 = merged_univ.calcL1()
 	} else {
-		l1 = calc_l1(samples)
+		l1 = calc_l1_map(m)
 	}
 
 	return Vector{Sample{
@@ -203,15 +237,15 @@ func funcL1OverTime(ctx context.Context, series *memSeries, c float64, t1, t2, t
 }
 
 func funcL2OverTime(ctx context.Context, series *memSeries, c float64, t1, t2, t int64) Vector {
-	merged_univ, samples, err := series.sketchInstances.ehuniv.QueryIntervalMergeUniv(t-t2, t-t1, t)
+	merged_univ, m, _, err := series.sketchInstances.ehuniv.QueryIntervalMergeUniv(t-t2, t-t1, t)
 	if err != nil {
 		return make(Vector, 0)
 	}
 	var l2 float64 = 0
-	if merged_univ != nil && samples == nil {
+	if merged_univ != nil && m == nil {
 		l2 = merged_univ.calcL2()
 	} else {
-		l2 = calc_l2(samples)
+		l2 = calc_l2_map(m)
 	}
 
 	return Vector{Sample{

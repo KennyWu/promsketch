@@ -79,16 +79,16 @@ func funcVMStdvarOverTime(ctx context.Context, sketchIns *SketchInstances, c []f
 
 func funcVMEntropyOverTime(ctx context.Context, sketchIns *SketchInstances, c []float64, t1, t2, t int64) float64 {
 
-	merged_univ, samples, err := sketchIns.ehuniv.QueryIntervalMergeUniv(t-t2, t-t1, t)
+	merged_univ, m, n, err := sketchIns.ehuniv.QueryIntervalMergeUniv(t-t2, t-t1, t)
 	if err != nil {
 		return 0
 	}
 
 	var entropy float64 = 0
-	if merged_univ != nil && samples == nil {
+	if merged_univ != nil && m == nil {
 		entropy = merged_univ.calcEntropy()
 	} else {
-		entropy = calc_entropy(samples)
+		entropy = calc_entropy_map(m, n)
 	}
 
 	return entropy
@@ -96,30 +96,30 @@ func funcVMEntropyOverTime(ctx context.Context, sketchIns *SketchInstances, c []
 
 func funcVMCardOverTime(ctx context.Context, sketchIns *SketchInstances, c []float64, t1, t2, t int64) float64 {
 
-	merged_univ, samples, err := sketchIns.ehuniv.QueryIntervalMergeUniv(t-t2, t-t1, t)
+	merged_univ, m, _, err := sketchIns.ehuniv.QueryIntervalMergeUniv(t-t2, t-t1, t)
 	if err != nil {
 		return 0
 	}
 	var card float64 = 0
-	if merged_univ != nil && samples == nil {
+	if merged_univ != nil && m == nil {
 		card = merged_univ.calcCard()
 	} else {
-		card = calc_distinct(samples)
+		card = calc_distinct_map(m)
 	}
 	return card
 }
 
 func funcVML1OverTime(ctx context.Context, sketchIns *SketchInstances, c []float64, t1, t2, t int64) float64 {
 
-	merged_univ, samples, err := sketchIns.ehuniv.QueryIntervalMergeUniv(t-t2, t-t1, t)
+	merged_univ, m, _, err := sketchIns.ehuniv.QueryIntervalMergeUniv(t-t2, t-t1, t)
 	if err != nil {
 		return 0
 	}
 	var l1 float64 = 0
-	if merged_univ != nil && samples == nil {
+	if merged_univ != nil && m == nil {
 		l1 = merged_univ.calcL1()
 	} else {
-		l1 = calc_l1(samples)
+		l1 = calc_l1_map(m)
 	}
 
 	return l1
@@ -127,15 +127,15 @@ func funcVML1OverTime(ctx context.Context, sketchIns *SketchInstances, c []float
 
 func funcVML2OverTime(ctx context.Context, sketchIns *SketchInstances, c []float64, t1, t2, t int64) float64 {
 
-	merged_univ, samples, err := sketchIns.ehuniv.QueryIntervalMergeUniv(t-t2, t-t1, t)
+	merged_univ, m, _, err := sketchIns.ehuniv.QueryIntervalMergeUniv(t-t2, t-t1, t)
 	if err != nil {
 		return 0
 	}
 	var l2 float64 = 0
-	if merged_univ != nil && samples == nil {
+	if merged_univ != nil && m == nil {
 		l2 = merged_univ.calcL2()
 	} else {
-		l2 = calc_l2(samples)
+		l2 = calc_l2_map(m)
 	}
 
 	return l2

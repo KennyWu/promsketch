@@ -490,7 +490,7 @@ func (ps *PromSketches) PrintSampling(lset labels.Labels) {
 func (ps *PromSketches) PrintEHUniv(lset labels.Labels) {
 	series := ps.series.getByHash(lset.Hash(), lset)
 	fmt.Println(series.sketchInstances.ehuniv.GetTotalBucketSizes(), "total samples")
-	fmt.Println(series.sketchInstances.ehuniv.GetMemoryKB(), "KB", series.sketchInstances.ehuniv.arr_count, series.sketchInstances.ehuniv.s_count)
+	fmt.Println(series.sketchInstances.ehuniv.GetMemoryKB(), "KB", series.sketchInstances.ehuniv.map_count, series.sketchInstances.ehuniv.s_count)
 }
 
 func (ps *PromSketches) LookUpAndUpdateWindow(lset labels.Labels, funcName string, mint, maxt int64) bool {

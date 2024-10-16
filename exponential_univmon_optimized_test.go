@@ -43,7 +43,7 @@ func readCAIDA2019() {
 					vec = append(vec, Sample{T: t, F: float64(srcip)})
 					// fmt.Println("IP source address:", ipPacket.SrcIP)
 					// fmt.Println("IP destination address:", ipPacket.DstIP)
-					if t > 7000000 {
+					if t > 2000000 {
 						goto exit
 					}
 				}
@@ -59,14 +59,28 @@ exit:
 	fmt.Println("total packet num:", t)
 }
 
+func gsum_from_map(m *map[float64]int64, n float64) (float64, float64, float64, float64) {
+	var l1, l2, entropy float64 = 0, 0, 0
+	for _, v := range *m {
+		l1 += float64(v)
+		l2 += float64(v * v)
+		entropy += float64(v) * math.Log2(float64(v))
+	}
+	distinct := float64(len(*m))
+	l2 = math.Sqrt(l2)
+	entropy = math.Log2(n) - entropy/n
+	return distinct, l1, entropy, l2
+}
+
 // Test cost (compute + memory) and accuracy under sliding window
 func TestExpoHistogramUnivMonOptimizedCAIDA(t *testing.T) {
 
-	// query_window_size_input := []int64{1000000, 7000000, 100000, 10000}
-	query_window_size_input := []int64{1000000}
+	query_window_size_input := []int64{1000000, 100000, 10000}
+	// query_window_size_input := []int64{1000000}
 	total_length := int64(2000000)
 
-	readCAIDA2019()
+	// readCAIDA2019()
+	readCAIDA()
 	for _, query_window_size := range query_window_size_input {
 		cost_query_interval_gsum := int64(query_window_size / 10)
 		// Create a scenario
@@ -90,7 +104,7 @@ func TestExpoHistogramUnivMonOptimizedCAIDA(t *testing.T) {
 		fmt.Println("Finished reading input timeseries.")
 
 		for test_case := 0; test_case < 5; test_case += 1 {
-			filename := "ehuniv_cost_analysis_2048_512/caida2019_gsum_ehuniv_10sampling_optimized_cost_max30720_c6320_" + strconv.Itoa(int(query_window_size)) + "_" + strconv.Itoa(test_case) + ".txt"
+			filename := "ehuniv_cost_analysis_l2/caida2018_gsum_ehuniv_10sampling_optimized_cost_max30720_c6320_" + strconv.Itoa(int(query_window_size)) + "_" + strconv.Itoa(test_case) + ".txt"
 			fmt.Println(filename)
 			f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 			if err != nil {
@@ -104,7 +118,7 @@ func TestExpoHistogramUnivMonOptimizedCAIDA(t *testing.T) {
 			w.Flush()
 
 			// PromSketch, EHUniv
-			k_input := []int64{2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 40, 100, 200, 500, 1000}
+			k_input := []int64{10, 12, 14, 16, 18, 20, 40, 100, 200, 500, 1000}
 			// k_input := []int64{10}
 			for _, k := range k_input {
 				fmt.Println("EHUnivOptimized", k)
@@ -185,18 +199,18 @@ func TestExpoHistogramUnivMonOptimizedCAIDA(t *testing.T) {
 							fmt.Println("t, start_t, end_t:", t, start_t, end_t)
 
 							start := time.Now()
-							merged_univ, samples, _ := ehu.QueryIntervalMergeUniv(start_t, end_t, t)
+							merged_univ, m, n, _ := ehu.QueryIntervalMergeUniv(start_t, end_t, t)
 							distinct := float64(0)
 							l1 := float64(0)
 							l2 := float64(0)
 							entropy := float64(0)
-							if merged_univ != nil && samples == nil {
+							if merged_univ != nil && m == nil {
 								distinct = merged_univ.calcCard()
 								l1 = merged_univ.calcL1()
 								l2 = merged_univ.calcL2()
 								entropy = merged_univ.calcEntropy()
-							} else if samples != nil && merged_univ == nil {
-								distinct, l1, entropy, l2 = gsum(*samples)
+							} else if m != nil && merged_univ == nil {
+								distinct, l1, entropy, l2 = gsum_from_map(m, n)
 							} else {
 								fmt.Println("query error")
 							}
@@ -339,14 +353,15 @@ func TestExpoHistogramUnivMonOptimizedCAIDA(t *testing.T) {
 
 func TestExpoHistogramUnivMonOptimizedCAIDAUpdateTime(t *testing.T) {
 
-	query_window_size_input := []int64{10000, 100000, 1000000, 7000000}
-	total_length := int64(7000000)
+	// query_window_size_input := []int64{1000000, 10000, 100000}
+	query_window_size_input := []int64{1000000}
+	total_length := int64(2000000)
 
 	readCAIDA()
 	fmt.Println("Finished reading input timeseries.")
 
-	for test_case := 0; test_case < 5; test_case += 1 {
-		filename := "update_time/caida_gsum_ehuniv_optimized_update_time" + strconv.Itoa(test_case) + ".txt"
+	for test_case := 0; test_case < 1; test_case += 1 {
+		filename := "update_time/caida_gsum_ehuniv_optimized_l2_update_time" + strconv.Itoa(test_case) + ".txt"
 		fmt.Println(filename)
 		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 		if err != nil {
@@ -360,8 +375,8 @@ func TestExpoHistogramUnivMonOptimizedCAIDAUpdateTime(t *testing.T) {
 			fmt.Fprintln(w, "query window size:", query_window_size)
 
 			// PromSketch, EHUniv
-			k_input := []int64{2, 5, 10, 20, 50, 100, 200, 500}
-			// k_input := []int64{10}
+			// k_input := []int64{2, 5, 10, 20, 50, 100, 200, 500}
+			k_input := []int64{10}
 			for _, k := range k_input {
 				fmt.Println("EHUnivOptimized", k)
 				fmt.Fprintln(w, "EHUnivOptimized", k)
@@ -370,16 +385,21 @@ func TestExpoHistogramUnivMonOptimizedCAIDAUpdateTime(t *testing.T) {
 
 				insert_compute := 0.0
 				for t := int64(0); t < total_length; t++ {
+					// if t%10000 == 0 {
+					// 	fmt.Println("t=", t)
+					// 	fmt.Println("insert time per item:", insert_compute/float64(t+1), "us")
+					// 	fmt.Println("s_count:", ehu.s_count, "map_count:", ehu.map_count)
+					// }
 					start := time.Now()
 					ehu.Update(t, cases[0].vec[t].F)
 					elapsed := time.Since(start)
 					insert_compute += float64(elapsed.Microseconds())
-					// fmt.Println("insert time per item:", insert_compute/float64(t+1), "us")
-					// fmt.Println("s_count:", ehu.s_count, "arr_count:", ehu.arr_count)
+
 				}
 
 				fmt.Fprintln(w, "insert time per item:", insert_compute/float64(total_length), "us")
 				fmt.Fprintln(w, "s_count:", ehu.s_count)
+				fmt.Fprintln(w, "map_count:", ehu.map_count)
 				fmt.Fprintln(w, "memory:", ehu.GetMemoryKB(), "KB")
 				w.Flush()
 			}
