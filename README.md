@@ -18,6 +18,11 @@ curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
 nvm install 20
 ```
 
+### Datasets
+* Goolge Cluster Data v1: https://github.com/google/cluster-data/blob/master/TraceVersion1.md
+* Power dataset: https://www.kaggle.com/datasets/uciml/electric-power-consumption-data-set?resource=download
+* CAIDA traces: https://www.caida.org/catalog/datasets/passive_dataset_download/
+
 ### Run EHUniv test
 ```
 cd promsketch
