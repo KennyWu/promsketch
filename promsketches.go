@@ -8,8 +8,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/zzylol/prometheus-sketches/model/labels"
-	"github.com/zzylol/prometheus-sketches/util/annotations"
+	"github.com/zzylol/prometheus-sketch-VLDB/prometheus-sketches/model/labels"
+	"github.com/zzylol/prometheus-sketch-VLDB/prometheus-sketches/util/annotations"
 )
 
 const (
@@ -744,19 +744,24 @@ func (ps *PromSketches) SketchInsert(lset labels.Labels, t int64, val float64) e
 		return nil
 	}
 
-	if s.oldestTimestamp == -1 {
-		s.oldestTimestamp = t
-	}
-
 	if s.sketchInstances.ehkll != nil {
+		if s.oldestTimestamp == -1 {
+			s.oldestTimestamp = t
+		}
 		s.sketchInstances.ehkll.Update(t, val)
 	}
 
 	if s.sketchInstances.sampling != nil {
+		if s.oldestTimestamp == -1 {
+			s.oldestTimestamp = t
+		}
 		s.sketchInstances.sampling.Insert(t, val)
 	}
 
 	if s.sketchInstances.ehuniv != nil {
+		if s.oldestTimestamp == -1 {
+			s.oldestTimestamp = t
+		}
 		s.sketchInstances.ehuniv.Update(t, val)
 	}
 

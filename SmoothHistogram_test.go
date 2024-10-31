@@ -919,7 +919,7 @@ func readCAIDA() {
 					vec = append(vec, Sample{T: t, F: float64(srcip)})
 					// fmt.Println("IP source address:", ipPacket.SrcIP)
 					// fmt.Println("IP destination address:", ipPacket.DstIP)
-					if t > 7000000 {
+					if t > 2000000 {
 						goto exit
 					}
 				}

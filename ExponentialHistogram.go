@@ -179,7 +179,7 @@ func (ehkll *ExpoHistogramKLL) Cover(mint, maxt int64) bool {
 	}
 
 	// fmt.Println("cover search:", mint, maxt, ehkll.min_time[0], ehkll.max_time[ehkll.s_count-1])
-	isCovered := ehkll.max_time[ehkll.s_count-1] >= maxt && ehkll.min_time[0] <= mint
+	isCovered := ehkll.max_time[ehkll.s_count-1] >= maxt && ehkll.max_time[ehkll.s_count-1]-ehkll.time_window_size <= mint
 	ehkll.mutex.RUnlock()
 	return isCovered
 	// return ehkll.max_time[ehkll.s_count-1]-ehkll.time_window_size <= mint && ehkll.min_time[0] <= maxt
@@ -191,6 +191,14 @@ func (ehkll *ExpoHistogramKLL) GetMaxTime() int64 {
 	}
 
 	return ehkll.max_time[ehkll.s_count-1]
+}
+
+func (ehkll *ExpoHistogramKLL) GetMinTime() int64 {
+	if ehkll.s_count == 0 {
+		return -1
+	}
+
+	return ehkll.min_time[0]
 }
 
 func (ehkll *ExpoHistogramKLL) GetMemory() float64 {

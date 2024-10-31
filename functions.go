@@ -164,22 +164,34 @@ func funcCountOverTime(ctx context.Context, series *memSeries, c float64, t1, t2
 }
 
 func funcStddevOverTime(ctx context.Context, series *memSeries, c float64, t1, t2, t int64) Vector {
-	count := series.sketchInstances.sampling.QueryCount(t1, t2)
-	sum := series.sketchInstances.sampling.QuerySum(t1, t2)
-	sum2 := series.sketchInstances.sampling.QuerySum2(t1, t2)
+	// count := series.sketchInstances.sampling.QueryCount(t1, t2)
+	// sum := series.sketchInstances.sampling.QuerySum(t1, t2)
+	// sum2 := series.sketchInstances.sampling.QuerySum2(t1, t2)
 
-	stddev := math.Sqrt(sum2/count - math.Pow(sum/count, 2))
+	// stddev := math.Sqrt(sum2/count - math.Pow(sum/count, 2))
+
+	stddev := series.sketchInstances.sampling.QueryStddev(t1, t2)
 	return Vector{Sample{
 		F: float64(stddev),
 	}}
 }
 
-func funcStdvarOverTime(ctx context.Context, series *memSeries, c float64, t1, t2, t int64) Vector {
-	count := series.sketchInstances.sampling.QueryCount(t1, t2)
-	sum := series.sketchInstances.sampling.QuerySum(t1, t2)
-	sum2 := series.sketchInstances.sampling.QuerySum2(t1, t2)
+func sum2(values []float64) float64 {
+	var sum2 float64 = 0
+	for _, v := range values {
+		sum2 += v * v
+	}
+	return sum2
+}
 
-	stdvar := sum2/count - math.Pow(sum/count, 2)
+func funcStdvarOverTime(ctx context.Context, series *memSeries, c float64, t1, t2, t int64) Vector {
+	// count := series.sketchInstances.sampling.QueryCount(t1, t2)
+	// sum := series.sketchInstances.sampling.QuerySum(t1, t2)
+	// sum2 := series.sketchInstances.sampling.QuerySum2(t1, t2)
+
+	// stdvar := sum2/count - math.Pow(sum/count, 2)
+
+	stdvar := series.sketchInstances.sampling.QueryStdvar(t1, t2)
 	return Vector{Sample{
 		F: stdvar,
 	}}

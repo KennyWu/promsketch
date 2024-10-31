@@ -16,14 +16,6 @@ func sum(values []float64) float64 {
 	return sum
 }
 
-func sum2(values []float64) float64 {
-	var sum2 float64 = 0
-	for _, v := range values {
-		sum2 += v * v
-	}
-	return sum2
-}
-
 func prometheus_sum(total_length int64, time_window_size int64, t1, t2 []int64, ground_truth *([][]float64)) (float64, float64, float64) {
 	input_values := make([]float64, 0)
 	insert_compute := 0.0

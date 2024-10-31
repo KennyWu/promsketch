@@ -59,21 +59,23 @@ func funcVMCountOverTime(ctx context.Context, sketchIns *SketchInstances, c []fl
 
 func funcVMStddevOverTime(ctx context.Context, sketchIns *SketchInstances, c []float64, t1, t2, t int64) float64 {
 
-	count := sketchIns.sampling.QueryCount(t1, t2)
-	sum := sketchIns.sampling.QuerySum(t1, t2)
-	sum2 := sketchIns.sampling.QuerySum2(t1, t2)
+	// count := sketchIns.sampling.QueryCount(t1, t2)
+	// sum := sketchIns.sampling.QuerySum(t1, t2)
+	// sum2 := sketchIns.sampling.QuerySum2(t1, t2)
 
-	stddev := math.Sqrt(sum2/count - math.Pow(sum/count, 2))
+	// stddev := math.Sqrt(sum2/count - math.Pow(sum/count, 2))
+	stddev := sketchIns.sampling.QueryStddev(t1, t2)
 	return stddev
 }
 
 func funcVMStdvarOverTime(ctx context.Context, sketchIns *SketchInstances, c []float64, t1, t2, t int64) float64 {
 
-	count := sketchIns.sampling.QueryCount(t1, t2)
-	sum := sketchIns.sampling.QuerySum(t1, t2)
-	sum2 := sketchIns.sampling.QuerySum2(t1, t2)
+	// count := sketchIns.sampling.QueryCount(t1, t2)
+	// sum := sketchIns.sampling.QuerySum(t1, t2)
+	// sum2 := sketchIns.sampling.QuerySum2(t1, t2)
 
-	stdvar := sum2/count - math.Pow(sum/count, 2)
+	// stdvar := sum2/count - math.Pow(sum/count, 2)
+	stdvar := sketchIns.sampling.QueryStdvar(t1, t2)
 	return stdvar
 }
 

@@ -14,11 +14,11 @@ func TestQueryTimeSampling(t *testing.T) {
 	readGoogleClusterData2009()
 	// readPowerDataset()
 	total_length := int64(2000000)
-	sliding_window_sizes := []int64{10000, 100000, 1000000, 10000000}
-	// sliding_window_sizes := []int64{1000000}
+	// sliding_window_sizes := []int64{10000, 100000, 1000000, 10000000}
+	sliding_window_sizes := []int64{1000000}
 
 	for test_case := 0; test_case < 5; test_case++ {
-		filename := "query_time/google_avg_sampling_3_" + strconv.Itoa(test_case) + ".txt"
+		filename := "query_time/google_avg_sampling_" + strconv.Itoa(test_case) + ".txt"
 		fmt.Println(filename)
 		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 		if err != nil {
@@ -53,17 +53,12 @@ func TestQueryTimeSampling(t *testing.T) {
 				t2 = append(t2, start_t+query_window_size/10/10*int64(i)-1)
 			}
 
-			start_t = t1[len(t1)-1]
-			for i := 1; i <= 10; i++ {
-				t1 = append(t1, start_t+query_window_size/10/10/10*int64(i-1))
-				t2 = append(t2, start_t+query_window_size/10/10/10*int64(i)-1)
-			}
-
 			fmt.Fprintln(w, "t1:", t1)
 			fmt.Fprintln(w, "t2:", t2)
 
 			fmt.Fprintln(w, "sliding window size:", query_window_size)
 			sampling_rate := []float64{0.01, 0.05, 0.1, 0.2, 0.3}
+			// sampling_rate := []float64{0.1}
 
 			for _, rate := range sampling_rate {
 				fmt.Fprintln(w, "sampling", rate)
@@ -113,6 +108,7 @@ func TestQueryTimeSampling(t *testing.T) {
 								values = append(values, cases[0].vec[t].F)
 							}
 							gt_avg := sum(values) / float64(len(values))
+							// gt_avg := (sum2(values)/float64(len(values)) - math.Pow(sum(values)/float64(len(values)), 2))
 							elapsed1 := time.Since(start)
 							gt_query_time[j] += float64(elapsed1.Microseconds())
 							// fmt.Println(start_t, end_t, t, t2[j]-t1[j]+1, len(sampling_instance.Arr), elapsed.Microseconds(), elapsed1.Microseconds())

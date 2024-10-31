@@ -242,9 +242,11 @@ func (s *CountSketchUniv) cs_l22() float64 {
 				l2[r] += s.count[r][c] * s.count[r][c]
 			}
 		}
+
 		f2_value := MedianOfThree(l2[0], l2[1], l2[2])
 	*/
 	f2_value := MedianOfThree(s.l2[0], s.l2[1], s.l2[2])
+
 	return float64(f2_value)
 }
 

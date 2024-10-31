@@ -4,7 +4,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/prometheus/prometheus/util/zeropool"
+	"github.com/zzylol/prometheus-sketch-VLDB/prometheus-sketches/util/zeropool"
 )
 
 const WINDOW_SIZE int = 1000000

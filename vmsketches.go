@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 
 	"github.com/cespare/xxhash"
-	"github.com/zzylol/VictoriaMetrics/lib/storage"
+	"github.com/zzylol/VictoriaMetrics-sketches/lib/storage"
 )
 
 var seps = []byte{'\xff'}
@@ -325,19 +325,24 @@ func (vs *VMSketches) AddRow(mn *storage.MetricName, t int64, value float64) err
 		return nil // fmt.Errorf("not find timeseries")
 	}
 
-	if s.oldestTimestamp == -1 {
-		s.oldestTimestamp = t
-	}
-
 	if s.sketchInstances.ehkll != nil {
+		if s.oldestTimestamp == -1 {
+			s.oldestTimestamp = t
+		}
 		s.sketchInstances.ehkll.Update(t, value)
 	}
 
 	if s.sketchInstances.sampling != nil {
+		if s.oldestTimestamp == -1 {
+			s.oldestTimestamp = t
+		}
 		s.sketchInstances.sampling.Insert(t, value)
 	}
 
 	if s.sketchInstances.ehuniv != nil {
+		if s.oldestTimestamp == -1 {
+			s.oldestTimestamp = t
+		}
 		s.sketchInstances.ehuniv.Update(t, value)
 	}
 
@@ -347,6 +352,21 @@ func (vs *VMSketches) AddRow(mn *storage.MetricName, t int64, value float64) err
 func (si *SketchInstances) Eval(mn *storage.MetricName, funcName string, args []float64, mint, maxt, cur_time int64) float64 {
 	sfunc := VMFunctionCalls[funcName]
 	return sfunc(context.TODO(), si, args, mint, maxt, cur_time)
+}
+
+func (s *SketchInstances) PrintMinMaxTimeRange(mn *storage.MetricName, funcName string) (mint, maxt int64) {
+	stype := funcSketchMap[funcName]
+
+	switch stype[0] {
+	case EHUniv:
+		return s.ehuniv.GetMinTime(), s.ehuniv.GetMaxTime()
+	case EHKLL:
+		return s.ehkll.GetMinTime(), s.ehkll.GetMaxTime()
+	case USampling:
+		return s.sampling.GetMinTime(), s.sampling.GetMaxTime()
+	default:
+		return -1, -1
+	}
 }
 
 func (vs *VMSketches) LookupMetricNameFuncNamesTimeRange(mn *storage.MetricName, funcNames []string, mint, maxt int64) (*SketchInstances, bool) {
@@ -371,19 +391,19 @@ func (vs *VMSketches) LookupMetricNameFuncNamesTimeRange(mn *storage.MetricName,
 		switch stype {
 		case EHUniv:
 			if series.sketchInstances.ehuniv == nil {
-				return series.sketchInstances, false
+				return nil, false
 			} else if series.sketchInstances.ehuniv.Cover(startt, maxt) == false {
 				return series.sketchInstances, false
 			}
 		case EHKLL:
 			if series.sketchInstances.ehkll == nil {
-				return series.sketchInstances, false
+				return nil, false
 			} else if series.sketchInstances.ehkll.Cover(startt, maxt) == false {
 				return series.sketchInstances, false
 			}
 		case USampling:
 			if series.sketchInstances.sampling == nil {
-				return series.sketchInstances, false
+				return nil, false
 			} else if series.sketchInstances.sampling.Cover(startt, maxt) == false {
 				return series.sketchInstances, false
 			}

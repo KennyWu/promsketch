@@ -13,7 +13,7 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 
 	"github.com/stretchr/testify/require"
-	"github.com/zzylol/prometheus-sketches/model/labels"
+	"github.com/zzylol/prometheus-sketch-VLDB/prometheus-sketches/model/labels"
 )
 
 func TestNewSketchCacheInstance(t *testing.T) {
@@ -154,11 +154,11 @@ func TestInsertThroughput(t *testing.T) {
 		lsets = append(lsets, inputLabel)
 		// promcache.NewSketchCacheInstance(inputLabel, "sum_over_time", 100000000, 1000000, 10000)
 		// promcache.NewSketchCacheInstance(inputLabel, "quantile_over_time", 100000000, 1000000, 10000)
-		promcache.NewSketchCacheInstance(inputLabel, "entropy_over_time", 1000000, 10000, 10000)
+		promcache.NewSketchCacheInstance(inputLabel, "entropy_over_time", 10000000, 100000, 10000)
 	}
 
 	start := time.Now()
-	ingestScrapesUniform(lsets, scrapeCountBatch, promcache)
+	ingestScrapes(lsets, scrapeCountBatch, promcache)
 
 	since := time.Since(start)
 
@@ -167,15 +167,9 @@ func TestInsertThroughput(t *testing.T) {
 
 }
 
-func ingestScrapesUniform(lbls []labels.Labels, scrapeCount int, promcache *PromSketches) (uint64, error) {
+func ingestScrapes(lbls []labels.Labels, scrapeCount int, promcache *PromSketches) (uint64, error) {
 	var total atomic.Uint64
-	ts_per_worker := int(len(lbls) / 64)
-	if len(lbls)%64 != 0 {
-		ts_per_worker += 1
-	}
-	if ts_per_worker > 100 {
-		ts_per_worker = 100
-	}
+
 	scrapeCountBatch := 100
 	for i := 0; i < scrapeCount; i += scrapeCountBatch {
 		var wg sync.WaitGroup
@@ -199,11 +193,16 @@ func ingestScrapesUniform(lbls []labels.Labels, scrapeCount int, promcache *Prom
 
 				var ato_total atomic.Uint64
 
+				var s float64 = 1.01
+				var v float64 = 1
+				var RAND *rand.Rand = rand.New(rand.NewSource(time.Now().Unix()))
+				z := rand.NewZipf(RAND, s, v, uint64(100000))
+
 				for i := 0; i < scrapeCountBatch; i++ {
 					ts += timeDelta
 
 					for j := 0; j < len(batch); j += 1 {
-						err := promcache.SketchInsert(batch[j], ts, float64(rand.Float64()*100000))
+						err := promcache.SketchInsert(batch[j], ts, float64(z.Uint64()))
 						if err != nil {
 							panic(err)
 						}

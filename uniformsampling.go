@@ -193,17 +193,7 @@ func (s *UniformSampling) Cover(t1, t2 int64) bool {
 		s.mutex.RUnlock()
 		return false
 	}
-	idx_1 := sort.Search(len(s.Arr), func(i int) bool { return s.Arr[i].T >= t1 })
-	idx_2 := sort.Search(len(s.Arr), func(i int) bool { return s.Arr[i].T > t2 }) - 1
-
-	var isCovered bool = false
-	if idx_1 >= len(s.Arr) {
-		isCovered = false
-	} else {
-		if idx_1 <= idx_2 {
-			isCovered = true
-		}
-	}
+	isCovered := s.Cur_time >= t2 && s.Cur_time-s.Time_window_size <= t1
 
 	s.mutex.RUnlock()
 	return isCovered
@@ -275,6 +265,54 @@ func (s *UniformSampling) QuerySum(t1, t2 int64) float64 {
 	}
 	s.mutex.RUnlock()
 	return sum / float64(s.Sampling_rate)
+}
+
+func (s *UniformSampling) QueryStddev(t1, t2 int64) float64 {
+	s.mutex.RLock()
+	var sum float64 = 0
+
+	idx_1 := sort.Search(len(s.Arr), func(i int) bool { return s.Arr[i].T >= t1 })
+	idx_2 := sort.Search(len(s.Arr), func(i int) bool { return s.Arr[i].T > t2 }) - 1
+
+	if idx_1 >= len(s.Arr) {
+		s.mutex.RUnlock()
+		return math.NaN()
+	}
+
+	var sum2 float64 = 0
+	var count float64 = 0
+	for i := idx_1; i <= idx_2; i++ {
+		sum += s.Arr[i].F
+		sum2 += s.Arr[i].F * s.Arr[i].F
+		count += 1
+	}
+	stddev := math.Sqrt(sum2/count - math.Pow(sum/count, 2))
+	s.mutex.RUnlock()
+	return stddev
+}
+
+func (s *UniformSampling) QueryStdvar(t1, t2 int64) float64 {
+	s.mutex.RLock()
+	var sum float64 = 0
+
+	idx_1 := sort.Search(len(s.Arr), func(i int) bool { return s.Arr[i].T >= t1 })
+	idx_2 := sort.Search(len(s.Arr), func(i int) bool { return s.Arr[i].T > t2 }) - 1
+
+	if idx_1 >= len(s.Arr) {
+		s.mutex.RUnlock()
+		return math.NaN()
+	}
+
+	var sum2 float64 = 0
+	var count float64 = 0
+	for i := idx_1; i <= idx_2; i++ {
+		sum += s.Arr[i].F
+		sum2 += s.Arr[i].F * s.Arr[i].F
+		count += 1
+	}
+	stdvar := sum2/count - math.Pow(sum/count, 2)
+	s.mutex.RUnlock()
+	return stdvar
 }
 
 func (s *UniformSampling) QueryMax(t1, t2 int64) float64 {
