@@ -46,7 +46,7 @@ cd prometheus-sketches
 make build
 ```
 
-### Integration with VictoriaMetrics
+### Integration with VictoriaMetrics single-node version
 
 ```
 git clone git@github.com:zzylol/VictoriaMetrics.git
@@ -57,3 +57,6 @@ cd VictoriaMetrics
 make victoria-metrics
 make vmalert
 ```
+
+### Integration with VictoriaMetrics Cluster version
+https://github.com/zzylol/VictoriaMetrics-cluster
