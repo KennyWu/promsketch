@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -306,6 +307,12 @@ func newSlidingHistorgrams(s *memSeries, stype SketchType, sc *SketchConfig) err
 			}
 	*/
 	return nil
+}
+
+type stripeLock struct {
+	sync.RWMutex
+	// Padding to avoid multiple locks being on the same cache line.
+	_ [40]byte
 }
 
 func NewSketchSeries(stripeSize int) *sketchSeries {
