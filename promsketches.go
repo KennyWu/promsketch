@@ -8,8 +8,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/zzylol/prometheus-sketches/model/labels"
-	"github.com/zzylol/prometheus-sketches/util/annotations"
+	"github.com/zzylol/prometheus-sketch-VLDB/prometheus-sketches/model/labels"
+	"github.com/zzylol/prometheus-sketch-VLDB/prometheus-sketches/util/annotations"
 )
 
 const (
@@ -409,6 +409,39 @@ func (ps *PromSketches) NewSketchCacheInstance(lset labels.Labels, funcName stri
 	return nil
 }
 
+func (ps *PromSketches) PrintCoverage(lset labels.Labels, funcName string) (int64, int64) {
+	series := ps.series.getByHash(lset.Hash(), lset)
+	if series == nil {
+		return -1, -1
+	}
+	stypes := funcSketchMap[funcName]
+	for _, stype := range stypes {
+		switch stype {
+		case EHUniv:
+			if series.sketchInstances.ehuniv == nil {
+				return -1, -1
+			} else {
+				return series.sketchInstances.ehuniv.GetMinTime(), series.sketchInstances.ehuniv.GetMaxTime()
+			}
+		case EHKLL:
+			if series.sketchInstances.ehkll == nil {
+				return -1, -1
+			} else {
+				return series.sketchInstances.ehkll.GetMinTime(), series.sketchInstances.ehkll.GetMaxTime()
+			}
+		case USampling:
+			if series.sketchInstances.sampling == nil {
+				return -1, -1
+			} else {
+				return series.sketchInstances.sampling.GetMinTime(), series.sketchInstances.sampling.GetMaxTime()
+			}
+		default:
+			return -1, -1
+		}
+	}
+	return -1, -1
+}
+
 func (ps *PromSketches) LookUp(lset labels.Labels, funcName string, mint, maxt int64) bool {
 	series := ps.series.getByHash(lset.Hash(), lset)
 	if series == nil {
@@ -508,23 +541,14 @@ func (ps *PromSketches) LookUpAndUpdateWindow(lset labels.Labels, funcName strin
 
 	for _, stype := range stypes {
 		switch stype {
-		/*
-			case EHCount:
-				if series.sketchInstances.ehc == nil {
-					// fmt.Println("[lookup] ehc no sketch instance")
-					return false
-				} else if series.sketchInstances.ehc.Cover(mint, maxt) == false {
-					// fmt.Println("[lookup] ehc not covered")
-					return false
-				}
-		*/
 		case EHUniv:
 			if series.sketchInstances.ehuniv == nil {
 				// fmt.Println("[lookup] no sketch instance")
 				return false
 			} else if series.sketchInstances.ehuniv.Cover(startt, maxt) == false {
 				if series.sketchInstances.ehuniv.time_window_size < maxt-mint {
-					series.sketchInstances.ehuniv.UpdateWindow(maxt - mint)
+					// fmt.Println("covered time range:", series.sketchInstances.ehuniv.GetMinTime(), series.sketchInstances.ehuniv.GetMaxTime())
+					series.sketchInstances.ehuniv.UpdateWindow(4 * (maxt - mint))
 				}
 				return false
 			}
@@ -533,7 +557,8 @@ func (ps *PromSketches) LookUpAndUpdateWindow(lset labels.Labels, funcName strin
 				return false
 			} else if series.sketchInstances.ehkll.Cover(startt, maxt) == false {
 				if series.sketchInstances.ehkll.time_window_size < maxt-mint {
-					series.sketchInstances.ehkll.UpdateWindow(maxt - mint)
+					// fmt.Println("covered time range:", series.sketchInstances.ehkll.GetMinTime(), series.sketchInstances.ehkll.GetMaxTime())
+					series.sketchInstances.ehkll.UpdateWindow(4 * (maxt - mint))
 				}
 				return false
 			}
@@ -542,36 +567,11 @@ func (ps *PromSketches) LookUpAndUpdateWindow(lset labels.Labels, funcName strin
 				return false
 			} else if series.sketchInstances.sampling.Cover(startt, maxt) == false {
 				if series.sketchInstances.sampling.Time_window_size < maxt-mint {
-					series.sketchInstances.sampling.UpdateWindow(maxt - mint)
+					// fmt.Println("covered time range:", series.sketchInstances.sampling.GetMinTime(), series.sketchInstances.sampling.GetMaxTime())
+					series.sketchInstances.sampling.UpdateWindow(4 * (maxt - mint))
 				}
 				return false
 			}
-		/*
-			case EffSum:
-				if series.sketchInstances.EffSum == nil {
-					// fmt.Println("[lookup] effsum no sketch instance")
-					return false
-				} else if series.sketchInstances.EffSum.Cover(mint, maxt) == false {
-					// fmt.Println("[lookup] effsum not covered")
-					return false
-				}
-			case EffSum2:
-				if series.sketchInstances.EffSum2 == nil {
-					// fmt.Println("[lookup] no sketch instance")
-					return false
-				} else if series.sketchInstances.EffSum2.Cover(mint, maxt) == false {
-					// fmt.Println("[lookup] not covered")
-					return false
-				}
-			case EHDD:
-				if series.sketchInstances.ehdd == nil {
-					// fmt.Println("[lookup] no sketch instance")
-					return false
-				} else if series.sketchInstances.ehdd.Cover(mint, maxt) == false {
-					// fmt.Println("[lookup] not covered")
-					return false
-				}
-		*/
 		default:
 			return false
 		}
@@ -778,4 +778,85 @@ func (ps *PromSketches) StopBackground() {
 			series.sketchInstances.ehuniv.StopBackgroundClean()
 		}
 	}
+}
+
+func (ps *PromSketches) GetTotalMemory() float64 { // KB
+	var total_mem float64 = 0
+	fmt.Println("total series=", ps.series.id)
+	for id := 0; id <= int(ps.series.id); id++ {
+		series := ps.series.getByID(TSId(id))
+		if series == nil {
+			continue
+		}
+		if series.sketchInstances.ehuniv != nil {
+			total_mem += series.sketchInstances.ehuniv.GetMemoryKB()
+			fmt.Println("TSid=", id, "mem=", series.sketchInstances.ehuniv.GetMemoryKB()/1024, "MB")
+		}
+		if series.sketchInstances.ehkll != nil {
+			total_mem += series.sketchInstances.ehkll.GetMemory()
+			fmt.Println("TSid=", id, "mem=", series.sketchInstances.ehkll.GetMemory()/1024, "MB")
+		}
+		if series.sketchInstances.sampling != nil {
+			total_mem += series.sketchInstances.sampling.GetMemory()
+			fmt.Println("TSid=", id, "mem=", series.sketchInstances.sampling.GetMemory()/1024, "MB")
+		}
+		total_mem += float64(unsafe.Sizeof(TSId(id))) / 1024
+		total_mem += float64(unsafe.Sizeof(series.lset)) / 1024
+		for idx := 0; idx < len(series.lset); idx++ {
+			total_mem += float64(unsafe.Sizeof(series.lset[idx].Name)) / 1024
+			total_mem += float64(unsafe.Sizeof(series.lset[idx].Value)) / 1024
+		}
+	}
+	total_mem += float64(unsafe.Sizeof(*ps.series)) / 1024
+	total_mem += float64(unsafe.Sizeof(ps.series.hashes)) / 1024
+	for _, hm := range ps.series.hashes {
+		total_mem += float64(unsafe.Sizeof(hm)) / 1024
+	}
+	total_mem += float64(unsafe.Sizeof(ps.series.series)) / 1024
+	for _, m := range ps.series.series {
+		total_mem += float64(unsafe.Sizeof(m) / 1024)
+	}
+	total_mem += float64(unsafe.Sizeof(ps.series.locks)) / 1024
+	for _, lock := range ps.series.locks {
+		total_mem += float64(unsafe.Sizeof(lock)) / 1024
+	}
+
+	return total_mem
+}
+
+func (ps *PromSketches) GetTotalMemoryEHUniv() float64 { // KB
+	var total_mem float64 = 0
+	fmt.Println("total series=", ps.series.id)
+	for id := 0; id <= int(ps.series.id); id++ {
+		series := ps.series.getByID(TSId(id))
+		if series == nil {
+			continue
+		}
+		if series.sketchInstances.ehuniv != nil {
+			total_mem += series.sketchInstances.ehuniv.GetMemoryKB()
+			fmt.Println("TSid=", id, "mem=", series.sketchInstances.ehuniv.GetMemoryKB()/1024, "MB")
+		}
+
+		total_mem += float64(unsafe.Sizeof(TSId(id))) / 1024
+		total_mem += float64(unsafe.Sizeof(series.lset)) / 1024
+		for idx := 0; idx < len(series.lset); idx++ {
+			total_mem += float64(unsafe.Sizeof(series.lset[idx].Name)) / 1024
+			total_mem += float64(unsafe.Sizeof(series.lset[idx].Value)) / 1024
+		}
+	}
+	total_mem += float64(unsafe.Sizeof(*ps.series)) / 1024
+	total_mem += float64(unsafe.Sizeof(ps.series.hashes)) / 1024
+	for _, hm := range ps.series.hashes {
+		total_mem += float64(unsafe.Sizeof(hm)) / 1024
+	}
+	total_mem += float64(unsafe.Sizeof(ps.series.series)) / 1024
+	for _, m := range ps.series.series {
+		total_mem += float64(unsafe.Sizeof(m) / 1024)
+	}
+	total_mem += float64(unsafe.Sizeof(ps.series.locks)) / 1024
+	for _, lock := range ps.series.locks {
+		total_mem += float64(unsafe.Sizeof(lock)) / 1024
+	}
+
+	return total_mem
 }

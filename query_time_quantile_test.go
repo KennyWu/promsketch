@@ -3,22 +3,133 @@ package promsketch
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"math"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
 
+func readDynamicFloat() {
+	filename := "./testdata/dynamic_ehkll.txt"
+	file, err := os.Open(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	vec := make(Vector, 0)
+	lines := 0
+	for scanner.Scan() {
+		if lines == 20000001 {
+			break
+		}
+		splits := strings.Split(scanner.Text(), " ")
+		F, _ := strconv.ParseFloat(strings.TrimSpace(splits[1]), 64)
+		T, _ := strconv.ParseFloat(strings.TrimSpace(splits[0]), 64)
+		vec = append(vec, Sample{T: int64(T), F: F})
+		lines += 1
+	}
+	key := "dynamic"
+	tmp := TestCase{
+		key: key,
+		vec: vec,
+	}
+	cases = append(cases, tmp)
+}
+
+func readUniformFloat() {
+	filename := "./testdata/uniform_ehkll.txt"
+	file, err := os.Open(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	vec := make(Vector, 0)
+	lines := 0
+	for scanner.Scan() {
+		if lines == 10000001 {
+			break
+		}
+		splits := strings.Split(scanner.Text(), " ")
+		F, _ := strconv.ParseFloat(strings.TrimSpace(splits[1]), 64)
+		T, _ := strconv.ParseFloat(strings.TrimSpace(splits[0]), 64)
+		vec = append(vec, Sample{T: int64(T), F: F})
+		lines += 1
+	}
+	key := "uniform"
+	tmp := TestCase{
+		key: key,
+		vec: vec,
+	}
+	cases = append(cases, tmp)
+}
+
+func readZipfFloat() {
+	filename := "./testdata/zipf_ehkll.txt"
+	file, err := os.Open(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	vec := make(Vector, 0)
+	lines := 0
+	for scanner.Scan() {
+		if lines == 20000001 {
+			break
+		}
+		splits := strings.Split(scanner.Text(), " ")
+		F, _ := strconv.ParseFloat(strings.TrimSpace(splits[1]), 64)
+		T, _ := strconv.ParseFloat(strings.TrimSpace(splits[0]), 64)
+		vec = append(vec, Sample{T: int64(T), F: F})
+		lines += 1
+	}
+	key := "zipf"
+	tmp := TestCase{
+		key: key,
+		vec: vec,
+	}
+	cases = append(cases, tmp)
+}
+
+// example usage:
+// go test -v -timeout 0 -run ^TestQueryTimeQuantile$ github.com/zzylol/promsketch -dataset=Zipf
+// go test -v -timeout 0 -run ^TestQueryTimeQuantile$ github.com/zzylol/promsketch -dataset=Uniform
+// go test -v -timeout 0 -run ^TestQueryTimeQuantile$ github.com/zzylol/promsketch -dataset=Google2019
 func TestQueryTimeQuantile(t *testing.T) {
-	// readGoogleClusterData2009()
-	readPowerDataset()
-	total_length := int64(2000000)
-	sliding_window_sizes := []int64{10000, 100000, 1000000, 10000000}
+	total_length := int64(20000000)
+	// sliding_window_sizes := []int64{10000, 100000, 1000000, 10000000}
+	sliding_window_sizes := []int64{1000000}
+
+	var dataset_name string = "power"
+	switch ds := dataset; ds {
+	case "Power":
+		readPowerDataset()
+		dataset_name = "power"
+	case "Google2019":
+		readGoogle2019()
+		dataset_name = "google2019"
+	case "Google2009":
+		readGoogleClusterData2009()
+		dataset_name = "google2009"
+	case "Zipf":
+		readZipfFloat()
+		dataset_name = "zipf"
+	case "Dynamic":
+		readDynamicFloat()
+		dataset_name = "dynamic"
+	case "Uniform":
+		readUniformFloat()
+		dataset_name = "uniform"
+	}
 
 	for test_case := 0; test_case < 5; test_case++ {
 
-		filename := "query_time/power_quantile_EHKLL_" + strconv.Itoa(test_case) + ".txt"
+		filename := "query_time/" + dataset_name + "_20M_quantile_EHKLL_10sampling_" + strconv.Itoa(test_case) + ".txt"
 		fmt.Println(filename)
 		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 		if err != nil {
@@ -31,7 +142,7 @@ func TestQueryTimeQuantile(t *testing.T) {
 			if query_window_size > total_length {
 				break
 			}
-			cost_query_interval_quantile := int64(query_window_size / 100)
+			cost_query_interval_quantile := int64(query_window_size / 10)
 			t1 := make([]int64, 0)
 			t2 := make([]int64, 0)
 			t1 = append(t1, int64(0))

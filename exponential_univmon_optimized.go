@@ -9,6 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"github.com/OneOfOne/xxhash"
 	"github.com/RoaringBitmap/roaring/v2"
@@ -75,7 +76,7 @@ func ExpoInitUnivOptimized(k int64, time_window_size int64) (ehu *ExpoHistogramU
 		k:                k,
 		s_count:          0,
 		map_count:        0,
-		max_map_size:     30720,
+		max_map_size:     EHUniv_MAX_MAP_SIZE,
 		min_map_size:     1,
 		time_window_size: time_window_size,
 		univs:            make([]*UnivSketch, 0),
@@ -303,7 +304,7 @@ func (ehu *ExpoHistogramUnivOptimized) Update(time_ int64, fvalue float64) {
 		}
 	}
 
-	if ehu.map_buckets[0].bucket_size >= ehu.max_map_size {
+	if 2*len(ehu.map_buckets[0].m) >= ehu.max_map_size {
 		// only under this, we may need to merge univmons
 
 		// change oldest array into univmon
@@ -361,10 +362,11 @@ func (eh *ExpoHistogramUnivOptimized) Cover(mint, maxt int64) bool {
 		return false
 	}
 
-	mint_time := eh.map_buckets[eh.map_count-1].max_time - eh.time_window_size
+	// mint_time := eh.map_buckets[eh.map_count-1].max_time - eh.time_window_size
 	// fmt.Println("EHoptimized Cover:", mint, maxt, mint_time, eh.array[eh.map_count-1].max_time)
 	maxt_covered := (eh.map_buckets[eh.map_count-1].max_time >= maxt)
-	mint_covered := (mint_time <= mint)
+	// mint_covered := (mint_time <= mint)
+	mint_covered := true
 	isCovered := mint_covered && maxt_covered
 	eh.mutex.RUnlock()
 	return isCovered
@@ -407,8 +409,14 @@ func (eh *ExpoHistogramUnivOptimized) GetMemoryKB() float64 {
 	}
 
 	for i := 0; i < eh.map_count; i++ {
+		total_mem += float64(32+32+64+64+32+64) / 8 / 1024
 		total_mem += float64(len(eh.map_buckets[i].m)) * 16 / 1024
+		total_mem += float64(unsafe.Sizeof(eh.map_buckets[i].m)) / 1024
+		// fmt.Println(i, float64(len(eh.map_buckets[i].m))*16/1024, len(eh.map_buckets[i].m))
 	}
+	// fmt.Println("k=", eh.k)
+	// fmt.Println("s_count=", eh.s_count)
+	// fmt.Println("map=", eh.map_count, total_mem)
 
 	return total_mem
 }

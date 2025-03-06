@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 
 	"github.com/cespare/xxhash"
-	"github.com/zzylol/VictoriaMetrics/lib/storage"
+	"github.com/zzylol/VictoriaMetrics-sketches/lib/storage"
 )
 
 var seps = []byte{'\xff'}
@@ -22,12 +22,12 @@ type vmMemSeries struct {
 	oldestTimestamp int64
 }
 
-type vmSketchSeriesHashMap struct {
+type VMSketchSeriesHashMap struct {
 	unique    map[uint64]*vmMemSeries
 	conflicts map[uint64][]*vmMemSeries
 }
 
-func (m *vmSketchSeriesHashMap) get(hash uint64, mn *storage.MetricName) *vmMemSeries {
+func (m *VMSketchSeriesHashMap) get(hash uint64, mn *storage.MetricName) *vmMemSeries {
 	if s, found := m.unique[hash]; found {
 		if s.mn.Equal(mn) {
 			return s
@@ -41,7 +41,7 @@ func (m *vmSketchSeriesHashMap) get(hash uint64, mn *storage.MetricName) *vmMemS
 	return nil
 }
 
-func (m *vmSketchSeriesHashMap) set(hash uint64, s *vmMemSeries) {
+func (m *VMSketchSeriesHashMap) set(hash uint64, s *vmMemSeries) {
 	if existing, found := m.unique[hash]; !found || existing.mn.Equal(s.mn) {
 		m.unique[hash] = s
 		return
@@ -59,7 +59,7 @@ func (m *vmSketchSeriesHashMap) set(hash uint64, s *vmMemSeries) {
 	m.conflicts[hash] = append(l, s)
 }
 
-func (m *vmSketchSeriesHashMap) del(hash uint64, id TSId) {
+func (m *VMSketchSeriesHashMap) del(hash uint64, id TSId) {
 	var rem []*vmMemSeries
 	unique, found := m.unique[hash]
 	switch {
@@ -89,10 +89,10 @@ func (m *vmSketchSeriesHashMap) del(hash uint64, id TSId) {
 
 // sketchSeries holds series by ID and also by hash of their MetricName.
 // ID-based lookups via getByID() are preferred over getByHash() for performance reasons.
-type vmSketchSeries struct {
+type VMSketchSeries struct {
 	size   int
 	id     TSId
-	hashes []vmSketchSeriesHashMap
+	hashes []VMSketchSeriesHashMap
 	series []map[TSId]*vmMemSeries
 	locks  []stripeLock
 }
@@ -100,10 +100,10 @@ type vmSketchSeries struct {
 type VMSketches struct {
 	lastSeriesID atomic.Uint64
 	numSeries    atomic.Uint64
-	series       *vmSketchSeries
+	series       *VMSketchSeries
 }
 
-func (s *vmSketchSeries) getByID(id TSId) *vmMemSeries {
+func (s *VMSketchSeries) getByID(id TSId) *vmMemSeries {
 	if s.size == 0 {
 		return nil
 	}
@@ -116,7 +116,7 @@ func (s *vmSketchSeries) getByID(id TSId) *vmMemSeries {
 	return series
 }
 
-func (s *vmSketchSeries) getByHash(hash uint64, mn *storage.MetricName) *vmMemSeries {
+func (s *VMSketchSeries) getByHash(hash uint64, mn *storage.MetricName) *vmMemSeries {
 	if s.size == 0 {
 		return nil
 	}
@@ -148,11 +148,11 @@ func newVMSlidingHistorgrams(s *vmMemSeries, stype SketchType, sc *SketchConfig)
 	return nil
 }
 
-func NewVMSketchSeries(stripeSize int) *vmSketchSeries {
-	ss := &vmSketchSeries{ // TODO: use stripeSeries toreduce lock contention later
+func NewVMSketchSeries(stripeSize int) *VMSketchSeries {
+	ss := &VMSketchSeries{ // TODO: use stripeSeries toreduce lock contention later
 		size:   stripeSize,
 		id:     0,
-		hashes: make([]vmSketchSeriesHashMap, stripeSize),
+		hashes: make([]VMSketchSeriesHashMap, stripeSize),
 		series: make([]map[TSId]*vmMemSeries, stripeSize),
 		locks:  make([]stripeLock, stripeSize),
 	}
@@ -161,7 +161,7 @@ func NewVMSketchSeries(stripeSize int) *vmSketchSeries {
 		ss.series[i] = map[TSId]*vmMemSeries{}
 	}
 	for i := range ss.hashes {
-		ss.hashes[i] = vmSketchSeriesHashMap{
+		ss.hashes[i] = VMSketchSeriesHashMap{
 			unique:    map[uint64]*vmMemSeries{},
 			conflicts: nil,
 		}

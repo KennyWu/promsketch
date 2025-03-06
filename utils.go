@@ -4,7 +4,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/zzylol/prometheus-sketches/util/zeropool"
+	"github.com/zzylol/prometheus-sketch-VLDB/prometheus-sketches/util/zeropool"
 )
 
 const WINDOW_SIZE int = 1000000
@@ -20,6 +20,35 @@ const CS_ONE_COL_NO int = 100000
 
 // for UnivMon
 // for SHUniv, use larger config; for EHUniv, use smaller config
+
+// Configuration 4
+// const ELEPHANT_LAYER = 8
+// const MICE_LAYER = 6
+// const CS_LVLS int = 14 // total layers
+// const CS_ROW_NO_Univ_ELEPHANT int = 3
+// const CS_COL_NO_Univ_ELEPHANT int = 256
+// const CS_ROW_NO_Univ_MICE int = 3
+// const CS_COL_NO_Univ_MICE int = 64
+
+// Configuration 3
+// const ELEPHANT_LAYER = 8
+// const MICE_LAYER = 6
+// const CS_LVLS int = 14 // total layers
+// const CS_ROW_NO_Univ_ELEPHANT int = 3
+// const CS_COL_NO_Univ_ELEPHANT int = 512
+// const CS_ROW_NO_Univ_MICE int = 3
+// const CS_COL_NO_Univ_MICE int = 128
+
+// Configuration 2
+// const ELEPHANT_LAYER = 8
+// const MICE_LAYER = 8
+// const CS_LVLS int = 16 // total layers
+// const CS_ROW_NO_Univ_ELEPHANT int = 3
+// const CS_COL_NO_Univ_ELEPHANT int = 1024
+// const CS_ROW_NO_Univ_MICE int = 3
+// const CS_COL_NO_Univ_MICE int = 128
+
+// Configuration 1, used in performance evaluation
 const ELEPHANT_LAYER = 8
 const MICE_LAYER = 8
 const CS_LVLS int = 16 // total layers
@@ -27,6 +56,8 @@ const CS_ROW_NO_Univ_ELEPHANT int = 3
 const CS_COL_NO_Univ_ELEPHANT int = 2048
 const CS_ROW_NO_Univ_MICE int = 3
 const CS_COL_NO_Univ_MICE int = 512
+
+const EHUniv_MAX_MAP_SIZE int = (ELEPHANT_LAYER*(CS_ROW_NO_Univ_ELEPHANT*CS_COL_NO_Univ_ELEPHANT) + MICE_LAYER*(CS_ROW_NO_Univ_MICE*CS_COL_NO_Univ_MICE))
 
 const TOPK_SIZE int = 100
 const TOPK_SIZE_MICE int = 100

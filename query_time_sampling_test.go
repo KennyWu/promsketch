@@ -11,14 +11,14 @@ import (
 )
 
 func TestQueryTimeSampling(t *testing.T) {
-	readGoogleClusterData2009()
+	readGoogle2019()
 	// readPowerDataset()
-	total_length := int64(2000000)
+	total_length := int64(20000000)
 	// sliding_window_sizes := []int64{10000, 100000, 1000000, 10000000}
 	sliding_window_sizes := []int64{1000000}
 
 	for test_case := 0; test_case < 5; test_case++ {
-		filename := "query_time/google_avg_sampling_" + strconv.Itoa(test_case) + ".txt"
+		filename := "query_time/google2019_20M_avg_sampling_" + strconv.Itoa(test_case) + ".txt"
 		fmt.Println(filename)
 		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 		if err != nil {
@@ -32,7 +32,7 @@ func TestQueryTimeSampling(t *testing.T) {
 				break
 			}
 
-			cost_query_interval_sampling_avg := int64(query_window_size / 100)
+			cost_query_interval_sampling_avg := int64(query_window_size / 10)
 			t1 := make([]int64, 0)
 			t2 := make([]int64, 0)
 			t1 = append(t1, query_window_size/3)

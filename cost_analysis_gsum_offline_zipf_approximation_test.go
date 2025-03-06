@@ -13,7 +13,7 @@ import (
 )
 
 func readZipf() {
-	filename := "./testdata/zipf_shuniv.txt"
+	filename := "./testdata/zipf_ehuniv.txt"
 	file, err := os.Open(filename)
 	if err != nil {
 		log.Fatal(err)

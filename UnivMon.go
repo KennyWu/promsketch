@@ -124,6 +124,7 @@ func (us *UnivSketch) GetMemoryKB() float64 {
 func (us *UnivSketch) GetMemoryKBPyramid() float64 {
 	var total_topk float64 = 0
 
+	total_topk += (32 + 32 + 32 + 32 + 32 + 64 + 64 + 64 + 32 + 64) / 8
 	for i := 0; i < us.layer; i++ {
 		total_topk += float64(unsafe.Sizeof(us.HH_layers[i]))
 	}
@@ -250,6 +251,22 @@ func (us *UnivSketch) PrintHHlayers() {
 		}
 	}
 	fmt.Println()
+}
+
+func (us *UnivSketch) QueryTopK(K int) *TopKHeap {
+	topk := NewTopKHeap(K)
+	for i := (us.layer - 1); i >= 0; i-- {
+		var l2_value float64 = us.cs_layers[i].cs_l2()
+		var threshold int64 = int64(l2_value * 0.01)
+		for _, item := range us.HH_layers[i].heap {
+			if item.count > threshold {
+				hash := xxhash.ChecksumString64S(item.key, uint64(us.seed))
+				hash = ((hash >> (i + 1)) & 1)
+				topk.Update(item.key, item.count)
+			}
+		}
+	}
+	return topk
 }
 
 // Query Universal Sketch
