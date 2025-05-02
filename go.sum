@@ -91,8 +91,6 @@ github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo
 github.com/yusufpapurcu/wmi v1.2.4/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
 github.com/zzylol/VictoriaMetrics-sketches v0.1.0 h1:BENnPhRHVFaLzkCV5L10fpUaaCBt22ytzb1ibkijOG4=
 github.com/zzylol/VictoriaMetrics-sketches v0.1.0/go.mod h1:57xAbSEsgwBc0LdagCFnzFN4MtWMKZqqSGLtedv7BYI=
-github.com/zzylol/go-kll v0.0.0-20240604180517-e15a688e6ebe h1:559sShIAZzwmW38T8gwDnZt4pPEtkyOIB8GzqkZPk50=
-github.com/zzylol/go-kll v0.0.0-20240604180517-e15a688e6ebe/go.mod h1:yBYzN7orOcqHVW7NcjYS/K90f4bOuXr4OkhsadygrnM=
 github.com/zzylol/go-kll v0.0.1 h1:54O2mqW41PG7OgkgZL88x+YiqBE4g5FtW4iVEdENgXM=
 github.com/zzylol/go-kll v0.0.1/go.mod h1:yBYzN7orOcqHVW7NcjYS/K90f4bOuXr4OkhsadygrnM=
 github.com/zzylol/metricsql v0.1.1 h1:Wk/7O7gdjF7b1LTCT81Rd6Gcx/e3lTSB7n1zttR8V1o=
