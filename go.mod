@@ -1,4 +1,4 @@
-module github.com/froot-netsys/promsketch
+module github.com/KennyWu/promsketch
 
 go 1.22.5
 
