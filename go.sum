@@ -1,5 +1,7 @@
 github.com/DataDog/sketches-go v1.4.6 h1:acd5fb+QdUzGrosfNLwrIhqyrbMORpvBy7mE+vHlT3I=
 github.com/DataDog/sketches-go v1.4.6/go.mod h1:7Y8GN8Jf66DLyDhc94zuWA3uHEt/7ttt8jHOBWWrSOg=
+github.com/KennyWu/prometheus-sketch-VLDB/prometheus-sketches v0.0.0-20250504221235-a9fb45bcdb4a h1:hKeRJbBL1pMlJ6hWLLhDt8yN3WjTvhJpgLq1vkh746U=
+github.com/KennyWu/prometheus-sketch-VLDB/prometheus-sketches v0.0.0-20250504221235-a9fb45bcdb4a/go.mod h1:7rCzvlopf4Ykn8Q0RShlcDQoG8dNmgr//umhJLJYL8I=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/OneOfOne/xxhash v1.2.8 h1:31czK/TI9sNkxIKfaUfGlU47BAxQ0ztGgd9vPyqimf8=
 github.com/OneOfOne/xxhash v1.2.8/go.mod h1:eZbhyaAYD41SGSSsnmcpxVoRiQ/MPUTjUdIIOT9Um7Q=

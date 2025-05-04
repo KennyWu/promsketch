@@ -2,8 +2,11 @@ module github.com/KennyWu/promsketch
 
 go 1.22.5
 
+//replace github.com/zzylol/prometheus-sketch-VLDB/prometheus-sketches v0.0.0-20241028182337-4e9ac2e3497b => github.com/KennyWu/prometheus-sketch-VLDB/prometheus-sketches v0.0.0-20250504221235-a9fb45bcdb4a
+
 require (
 	github.com/DataDog/sketches-go v1.4.6
+	github.com/KennyWu/prometheus-sketch-VLDB/prometheus-sketches v0.0.0-20250504221235-a9fb45bcdb4a
 	github.com/OneOfOne/xxhash v1.2.8
 	github.com/RoaringBitmap/roaring/v2 v2.3.5
 	github.com/cespare/xxhash v1.1.0
@@ -43,7 +46,6 @@ require (
 	github.com/valyala/histogram v1.2.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zzylol/metricsql v0.1.1 // indirect
-	golang.org/x/net v0.30.0 // indirect
 	golang.org/x/sys v0.26.0 // indirect
 	google.golang.org/protobuf v1.35.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
