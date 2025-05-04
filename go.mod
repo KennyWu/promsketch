@@ -2,8 +2,6 @@ module github.com/KennyWu/promsketch
 
 go 1.22.5
 
-//replace github.com/zzylol/prometheus-sketch-VLDB/prometheus-sketches v0.0.0-20241028182337-4e9ac2e3497b => github.com/KennyWu/prometheus-sketch-VLDB/prometheus-sketches v0.0.0-20250504221235-a9fb45bcdb4a
-
 require (
 	github.com/DataDog/sketches-go v1.4.6
 	github.com/KennyWu/prometheus-sketch-VLDB/prometheus-sketches v0.0.0-20250504221235-a9fb45bcdb4a
@@ -17,7 +15,6 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/zzylol/VictoriaMetrics-sketches v0.1.0
 	github.com/zzylol/go-kll v0.0.1
-	github.com/zzylol/prometheus-sketch-VLDB/prometheus-sketches v0.0.0-20241028182337-4e9ac2e3497b
 )
 
 require (
