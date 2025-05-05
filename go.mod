@@ -4,7 +4,7 @@ go 1.22.5
 
 require (
 	github.com/DataDog/sketches-go v1.4.6
-	github.com/KennyWu/prometheus-sketch-VLDB/prometheus-sketches v0.0.0-20250504221235-a9fb45bcdb4a
+	//github.com/KennyWu/prometheus-sketch-VLDB/prometheus-sketches v0.0.0-20250504235632-fd5c218b7989
 	github.com/OneOfOne/xxhash v1.2.8
 	github.com/RoaringBitmap/roaring/v2 v2.3.5
 	github.com/google/gopacket v1.1.19
@@ -14,6 +14,8 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/zzylol/go-kll v0.0.1
 )
+
+require github.com/KennyWu/prometheus-sketch-VLDB/prometheus-sketches v0.0.0-20250504235632-fd5c218b7989
 
 require (
 	github.com/bits-and-blooms/bitset v1.14.3 // indirect
