@@ -3,7 +3,6 @@ package promsketch
 import (
 	"flag"
 	"fmt"
-	"math"
 	"math/rand"
 	"testing"
 	"time"
@@ -28,9 +27,9 @@ import (
 //}
 
 var coreSketchRerunAttempts = *flag.Int("coreRerunAttempts", 3, "Number of attempts to rerun core sketch")
-var coreBucketSize = *flag.Int("coreBucketSize", 150000, "Number of buckets per core")
+var coreBucketSize = *flag.Int("coreBucketSize", 80000, "Number of buckets per core")
 var concurrent = *flag.Bool("concurrent", true, "Whether to run concurrent core sketches")
-var threads = *flag.Int("threads", 1, "Number of threads to run")
+var threads = *flag.Int("threads", 4, "Number of threads to run")
 var minVal = 0.01
 var maxVal = 100.0
 var src = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -40,13 +39,19 @@ var zipf = rand.NewZipf(src, s, v, uint64(maxVal*10.0))
 
 var TestCases = []struct{ Datasize int }{
 	{
-		1,
-	},
-	{
 		10,
 	},
 	{
 		100,
+	},
+	{
+		400,
+	},
+	{
+		600,
+	},
+	{
+		934,
 	},
 	{
 		1000,
@@ -85,6 +90,9 @@ func runTest(t *testing.T, dataSize int, data []float64) {
 		if concurrent {
 			fmt.Printf("[%d] CORE_MAD_CONCURRENT=%f, EXACT_MAD=%f\n", dataSize, coreMad, mad)
 			fmt.Printf("[%d] CORE_MAD_CONCURRENT_TIME(S):%f\n", dataSize, coreDelta)
+		} else {
+			fmt.Printf("[%d] CORE_MAD=%f, EXACT_MAD=%f\n", dataSize, coreMad, mad)
+			fmt.Printf("[%d] CORE_MAD_TIME(S):%f\n", dataSize, coreDelta)
 		}
 		fmt.Printf("[%d] EXACT_MAD_TIME(S):%f\n", dataSize, exactDelta)
 	}
@@ -128,7 +136,7 @@ func TestCoreSketchNormal(t *testing.T) {
 	for _, testCase := range TestCases {
 		data := make([]float64, testCase.Datasize)
 		for i := 0; i < testCase.Datasize; i++ {
-			data[i] = generateNormal(50, 10)
+			data[i] = generateNormal(50, 5)
 		}
 
 		runTest(t, testCase.Datasize, data)
@@ -169,16 +177,4 @@ func generateNormal(mean, stddev float64) float64 {
 		return maxVal
 	}
 	return val
-}
-
-func exactMad(data []float64) float64 {
-	values := make([]float64, 0, len(data))
-	values = append(values, data...)
-	median := quantile(0.5, values)
-	values = make([]float64, 0, len(data))
-	for _, value := range data {
-		values = append(values, math.Abs(value-median))
-	}
-
-	return quantile(0.5, values)
 }

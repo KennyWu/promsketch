@@ -2,8 +2,10 @@ package promsketch
 
 import (
 	"context"
-	"k8s.io/utils/integer"
+	"fmt"
 	"math"
+
+	"k8s.io/utils/integer"
 )
 
 type FunctionCall func(ctx context.Context, series *memSeries, c float64, t1, t2, t int64) Vector
@@ -131,15 +133,18 @@ func calc_l2_map(m *map[float64]int64) float64 {
 
 func funcMadOverTime(ctx context.Context, series *memSeries, c float64, t1, t2, t int64) Vector {
 	data := series.sketchInstances.ehCore.QueryIntervalMergeCore(t1, t2)
-	if len(data) == 1 {
+	fmt.Printf("MAD_OVER_TIME: length of data: %d\n", len(data))
+	fmt.Printf("t1: %d, t2: %d\n", t1, t2)
+	// Isn't correct if the data sample isnt too small revert to exact Mad
+	if len(data) < 20 {
 		return Vector{
 			Sample{
-				F: 0.0,
+				F: exactMad(data),
 			},
 		}
 	}
 	//Can only query between (0, 100) at the current stage
-	mad := CoreMadConcurrent(data, 0.01, 100, series.sketchInstances.ehCore.coreBucketSize,
+	mad := CoreMadConcurrent(data, 100, 0.01, series.sketchInstances.ehCore.coreBucketSize,
 		integer.IntMin(series.sketchInstances.ehCore.threads, len(data)))
 	return Vector{
 		Sample{

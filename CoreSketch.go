@@ -12,14 +12,14 @@ const SPACE_LIMIT = 1024
 var LOG_2 = math.Log(2)
 
 type CoreSketch struct {
-	power_2_card, frac__power_2_card, card__log_2 float64
-	l, r, m                                       int
-	card                                          int
-	maxBucket                                     int
-	usefulRange                                   []float64
-	buckets                                       map[int64]int64
-	data_size                                     int64
-	pruned_size                                   int64
+	power_2_card, frac__power_2_card__log_2, card__log_2 float64
+	l, r, m                                              int
+	card                                                 int
+	maxBucket                                            int
+	usefulRange                                          []float64
+	buckets                                              map[int64]int64
+	data_size                                            int64
+	pruned_size                                          int64
 	// Count from left to median bucket
 	left_count int64
 	// Count from median to right bucket
@@ -146,7 +146,7 @@ func calculateMad(data []float64, sketch *CoreSketch) float64 {
 		madRank += int(midNum[1]) + int(midNum[2])
 	}
 	if madRank >= queueN {
-		madRank -= queueN - 1
+		madRank = queueN - 1
 	}
 	mad := getKth(queue, 0, queueN, madRank)
 	return mad
@@ -249,7 +249,7 @@ func NewCoreSketch() *CoreSketch {
 
 	s.card = 0
 	s.power_2_card = math.Pow(2, float64(s.card))
-	s.frac__power_2_card = s.power_2_card / LOG_2
+	s.frac__power_2_card__log_2 = s.power_2_card / LOG_2
 	s.maxBucket = SPACE_LIMIT
 	s.usefulRange = make([]float64, 6)
 	s.buckets = make(map[int64]int64, s.maxBucket)
@@ -269,7 +269,7 @@ func NewCoreSketchWithParams(card int, maxBucket int, usefulRange []float64) *Co
 
 	s.card = card
 	s.power_2_card = math.Pow(2, float64(card))
-	s.frac__power_2_card = s.power_2_card / LOG_2
+	s.frac__power_2_card__log_2 = s.power_2_card / LOG_2
 	s.maxBucket = maxBucket
 	s.buckets = make(map[int64]int64, maxBucket)
 
@@ -327,7 +327,7 @@ func (coresketch *CoreSketch) Insert(v float64) {
 		coresketch.InsertMid(v)
 		v = coresketch.Customize(v)
 	}
-	i := int64(math.Ceil(coresketch.frac__power_2_card * math.Log(v)))
+	i := int64(math.Ceil(coresketch.frac__power_2_card__log_2 * math.Log(v)))
 	coresketch.buckets[i] = coresketch.buckets[i] + 1
 }
 
@@ -409,12 +409,12 @@ func (cs *CoreSketch) EdgeHalfCountBucket(m int) []int {
 	// Adjust l and r for edge conditions
 	r--
 	l++
-	if r == len(cs.bucket_sequence)-1 && cursor != r {
-		r = -1
-	}
-	if l == 0 && cursor != l {
-		l = -1
-	}
+	//if r == len(cs.bucket_sequence)-1 && cursor != r {
+	//	r = -1
+	//}
+	//if l == 0 && cursor != l {
+	//	l = -1
+	//}
 
 	cs.l = l
 	cs.r = r
@@ -520,7 +520,7 @@ func (cs *CoreSketch) Merge(cs2 *CoreSketch) {
 		}
 		cs.card = cs2.card
 		cs.power_2_card = cs2.power_2_card
-		cs.frac__power_2_card = cs2.frac__power_2_card
+		cs.frac__power_2_card__log_2 = cs2.frac__power_2_card__log_2
 	}
 	// Combining ranges of sketches
 	cs.usefulRange[0] = math.Min(cs.usefulRange[0], cs2.usefulRange[0])
@@ -565,5 +565,17 @@ func (cs *CoreSketch) GetGap() []int64 {
 func (cs *CoreSketch) SetCard(card int) {
 	cs.card = card
 	cs.power_2_card = math.Pow(2, float64(card))
-	cs.frac__power_2_card = cs.power_2_card / LOG_2
+	cs.frac__power_2_card__log_2 = cs.power_2_card / LOG_2
+}
+
+func exactMad(data []float64) float64 {
+	values := make([]float64, 0, len(data))
+	values = append(values, data...)
+	median := quantile(0.5, values)
+	values = make([]float64, 0, len(data))
+	for _, value := range data {
+		values = append(values, math.Abs(value-median))
+	}
+
+	return quantile(0.5, values)
 }

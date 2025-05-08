@@ -410,7 +410,7 @@ func (ps *PromSketches) NewSketchCacheInstance(lset labels.Labels, funcName stri
 		case EHKLL:
 			sc.EH_kll_config = EHKLLConfig{K: 50, Time_window_size: time_window_size, Kll_k: 256}
 		case EHCORE:
-			sc.EH_Core_config = EHCoreConfig{K: 50, Time_window_size: time_window_size, Bucket_size: 150000, Threads: 4}
+			sc.EH_Core_config = EHCoreConfig{K: 50, Time_window_size: time_window_size, Bucket_size: 40000, Threads: 4}
 			/*
 				case EHCount:
 					sc.EH_count_config = EHCountConfig{K: 100, Time_window_size: time_window_size}
