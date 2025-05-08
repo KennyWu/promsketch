@@ -15,7 +15,10 @@ require (
 	github.com/zzylol/go-kll v0.0.1
 )
 
-require github.com/KennyWu/prometheus-sketch-VLDB/prometheus-sketches v0.0.0-20250504235632-fd5c218b7989
+require (
+	github.com/KennyWu/prometheus-sketch-VLDB/prometheus-sketches v0.0.0-20250504235632-fd5c218b7989
+	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0
+)
 
 require (
 	github.com/bits-and-blooms/bitset v1.14.3 // indirect
