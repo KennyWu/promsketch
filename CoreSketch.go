@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/rand"
 	"sort"
+	"sync"
 )
 
 const SPACE_LIMIT = 1024
@@ -132,6 +133,10 @@ func calculateMad(data []float64, sketch *CoreSketch) float64 {
 	if medianRank < 0 {
 		medianRank += int(midNum[1])
 	}
+	if medianRank >= queueN {
+		medianRank = queueN - 1
+	}
+
 	median := getKth(queue, 0, queueN, medianRank)
 	for i, val := range queue {
 		queue[i] = math.Abs(val - median)
@@ -139,6 +144,9 @@ func calculateMad(data []float64, sketch *CoreSketch) float64 {
 	madRank := int((len(data)-1)/2) - int(midNum[1]) - int(midNum[2])
 	if madRank < 0 {
 		madRank += int(midNum[1]) + int(midNum[2])
+	}
+	if madRank >= queueN {
+		madRank -= queueN - 1
 	}
 	mad := getKth(queue, 0, queueN, madRank)
 	return mad
@@ -188,6 +196,34 @@ func getKth(data []float64, L, R, K int) float64 {
 func CoreMadMain(data []float64, max_val float64, min_val float64, space_limit int) float64 {
 	rang := []float64{min_val, max_val, min_val, max_val, min_val, max_val, 1}
 	sketch := FinestSketch(data, max_val, min_val, space_limit, len(data), rang)
+	return calculateMad(data, sketch)
+}
+
+func CoreMadConcurrent(data []float64, max_val float64, min_val float64, space_limit int, threads int) float64 {
+	sketches := make(map[int]*CoreSketch)
+	start := 0
+	var m sync.Mutex
+	var wg sync.WaitGroup
+	for i := 0; i < threads; i++ {
+		end := start + (len(data) / threads)
+		wg.Add(1)
+		go func(idx int, start int, end int) {
+			defer wg.Done()
+			rang := []float64{min_val, max_val, min_val, max_val, min_val, max_val, 1}
+			sample := data[start:int(math.Min(float64(end), float64(len(data))))]
+			sketch := FinestSketch(sample, max_val, min_val, space_limit/threads, len(sample), rang)
+			m.Lock()
+			sketches[idx] = sketch
+			m.Unlock()
+		}(i, start, end)
+		start = end
+	}
+	wg.Wait()
+	sketch := sketches[0]
+	for i := 1; i < threads; i++ {
+		sketch.Merge(sketches[i])
+	}
+
 	return calculateMad(data, sketch)
 }
 
@@ -488,11 +524,11 @@ func (cs *CoreSketch) Merge(cs2 *CoreSketch) {
 	}
 	// Combining ranges of sketches
 	cs.usefulRange[0] = math.Min(cs.usefulRange[0], cs2.usefulRange[0])
-	cs.usefulRange[1] = math.Min(cs.usefulRange[1], cs2.usefulRange[1])
+	cs.usefulRange[1] = math.Max(cs.usefulRange[1], cs2.usefulRange[1])
 	cs.usefulRange[2] = math.Min(cs.usefulRange[2], cs2.usefulRange[2])
-	cs.usefulRange[3] = math.Min(cs.usefulRange[3], cs2.usefulRange[3])
+	cs.usefulRange[3] = math.Max(cs.usefulRange[3], cs2.usefulRange[3])
 	cs.usefulRange[4] = math.Min(cs.usefulRange[4], cs2.usefulRange[4])
-	cs.usefulRange[5] = math.Min(cs.usefulRange[5], cs2.usefulRange[5])
+	cs.usefulRange[5] = math.Max(cs.usefulRange[5], cs2.usefulRange[5])
 
 	cs.data_size += cs2.data_size
 	cs.pruned_size += cs2.pruned_size

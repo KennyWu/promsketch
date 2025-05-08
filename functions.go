@@ -23,6 +23,7 @@ var FunctionCalls = map[string]FunctionCall{
 	"l1_over_time":       funcL1OverTime,
 	"l2_over_time":       funcL2OverTime,
 	"quantile_over_time": funcQuantileOverTime,
+	"mad_over_time":      funcMadOverTime,
 }
 
 func calc_entropy(values *[]float64) float64 {
@@ -125,6 +126,19 @@ func calc_l2_map(m *map[float64]int64) float64 {
 
 	l2 = math.Sqrt(l2)
 	return l2
+}
+
+func funcMadOverTime(ctx context.Context, series *memSeries, c float64, t1, t2, t int64) Vector {
+	data := series.sketchInstances.ehCore.QueryIntervalMergeCore(t1, t2)
+	//Can only query between (0, 100) at the current stage
+	mad := CoreMadConcurrent(data, 0.01, 100, series.sketchInstances.ehCore.coreBucketSize,
+		series.sketchInstances.ehCore.threads)
+	return Vector{
+		Sample{
+			F: mad,
+		},
+	}
+
 }
 
 // TODO: add last item value in the change data structure

@@ -1,88 +1,181 @@
 package promsketch
 
 import (
+	"flag"
 	"fmt"
 	"math"
 	"math/rand"
-	"sort"
 	"testing"
+	"time"
 )
 
-const DATA_SIZE int = 10000000
+//func funcMadOverTime(vals []parser.Value, args parser.Expressions, enh *EvalNodeHelper) (Vector, annotations.Annotations) {
+//	if len(vals[0].(Matrix)[0].Floats) == 0 {
+//		return enh.Out, nil
+//	}
+//	return aggrOverTime(vals, enh, func(s Series) float64 {
+//		values := make(vectorByValueHeap, 0, len(s.Floats))
+//		for _, f := range s.Floats {
+//			values = append(values, Sample{F: f.F})
+//		}
+//		median := quantile(0.5, values)
+//		values = make(vectorByValueHeap, 0, len(s.Floats))
+//		for _, f := range s.Floats {
+//			values = append(values, Sample{F: math.Abs(f.F - median)})
+//		}
+//		return quantile(0.5, values)
+//	}), nil
+//}
 
-func BenchMarkCoreSketch(b *testing.B) {
-	data := make([]float64, DATA_SIZE)
-	for i := 0; i < DATA_SIZE; i++ {
-		//data[i] = boundedNormal(50, 10)
-		data[i] = rand.Float64() + 0.01
+var coreSketchRerunAttempts = *flag.Int("coreRerunAttempts", 3, "Number of attempts to rerun core sketch")
+var coreBucketSize = *flag.Int("coreBucketSize", 150000, "Number of buckets per core")
+var concurrent = *flag.Bool("concurrent", true, "Whether to run concurrent core sketches")
+var threads = *flag.Int("threads", 6, "Number of threads to run")
+var minVal = 0.01
+var maxVal = 100.0
+var src = rand.New(rand.NewSource(time.Now().UnixNano()))
+var s = 1.01
+var v = 1.0
+var zipf = rand.NewZipf(src, s, v, uint64(maxVal*10.0))
+
+var TestCases = []struct{ Datasize int }{
+	{
+		10,
+	},
+	{
+		100,
+	},
+	{
+		1000,
+	},
+	{
+		10000,
+	},
+	{
+		100000,
+	},
+	{
+		1000000,
+	},
+	{
+		10000000,
+	},
+	{
+		100000000,
+	},
+}
+
+func runTest(t *testing.T, dataSize int, data []float64) {
+	for i := 0; i < coreSketchRerunAttempts; i++ {
+		var coreMad float64
+		now := time.Now()
+		if concurrent {
+			coreMad = CoreMadConcurrent(data, maxVal, minVal, coreBucketSize, threads)
+		} else {
+			coreMad = CoreMadMain(data, maxVal, minVal, coreBucketSize)
+		}
+
+		coreDelta := time.Since(now).Seconds()
+		now = time.Now()
+		mad := exactMad(data)
+		exactDelta := time.Since(now).Seconds()
+		if concurrent {
+			fmt.Printf("[%d] CORE_MAD_CONCURRENT=%f, EXACT_MAD=%f\n", dataSize, coreMad, mad)
+			fmt.Printf("[%d] CORE_MAD_CONCURRENT_TIME(S):%f\n", dataSize, coreDelta)
+		}
+		fmt.Printf("[%d] EXACT_MAD_TIME(S):%f\n", dataSize, exactDelta)
+	}
+}
+
+func TestCoreSketchZipf(t *testing.T) {
+	for _, testCase := range TestCases {
+		data := make([]float64, testCase.Datasize)
+		for i := 0; i < testCase.Datasize; i++ {
+			data[i] = GenerateZipfFloat()
+		}
+
+		runTest(t, testCase.Datasize, data)
+
+	}
+}
+
+func TestCoreSketchBimodal(t *testing.T) {
+	for _, testCase := range TestCases {
+		data := make([]float64, testCase.Datasize)
+		for i := 0; i < testCase.Datasize; i++ {
+			data[i] = generateBimodal(30, 5, 60, 5)
+		}
+
+		runTest(t, testCase.Datasize, data)
+	}
+}
+
+func TestCoreSketchTailDist(t *testing.T) {
+	for _, testCase := range TestCases {
+		data := make([]float64, testCase.Datasize)
+		for i := 0; i < testCase.Datasize; i++ {
+			data[i] = generateTailDist(50, 10, 55)
+		}
+
+		runTest(t, testCase.Datasize, data)
+	}
+}
+
+func TestCoreSketchNormal(t *testing.T) {
+	for _, testCase := range TestCases {
+		data := make([]float64, testCase.Datasize)
+		for i := 0; i < testCase.Datasize; i++ {
+			data[i] = generateNormal(50, 10)
+		}
+
+		runTest(t, testCase.Datasize, data)
+	}
+}
+
+func generateTailDist(mean, stddev, minThreshold float64) float64 {
+	for {
+		val := rand.NormFloat64()*stddev + mean
+
+		if val > minThreshold {
+			return val
+		}
 	}
 
 }
 
-func TestCoreSketch(t *testing.T) {
-	data := make([]float64, DATA_SIZE)
-	for i := 0; i < DATA_SIZE; i++ {
-		data[i] = boundedNormal(50, 10)
-		//data[i] = rand.Float64() + 0.01
+func generateBimodal(mean1, stdev1, mean2, stdev2 float64) float64 {
+	if rand.Float64() < 0.5 {
+		return generateNormal(mean1, stdev1)
+	} else {
+		return generateNormal(mean2, stdev2)
 	}
-	madCorrect := exactMad(data, len(data))
-	madReallyCorrect := mad(data)
-	madSketch := CoreMadMain(data, 1, 0.01, 20000)
-	fmt.Printf("Correct: %f, NonquickSelect: %f, madSketch: %f", madCorrect, madReallyCorrect, madSketch)
-	fmt.Printf("Sketch: %f", madSketch)
 }
 
-func median(data []float64) float64 {
-	n := len(data)
-	if n == 0 {
-		return math.NaN()
-	}
-	sorted := append([]float64{}, data...)
-	sort.Float64s(sorted)
-	mid := n / 2
-	if n%2 == 0 {
-		return (sorted[mid-1] + sorted[mid]) / 2
-	}
-	return sorted[mid]
+func GenerateZipfFloat() float64 {
+	n := zipf.Uint64() + 1 // shift to [1, imax + 1]
+
+	return float64(n) * (float64(maxVal) / float64((maxVal*10)+1))
 }
 
-func boundedNormal(mean, stddev float64) float64 {
+func generateNormal(mean, stddev float64) float64 {
 	val := rand.NormFloat64()*stddev + mean
 	// Clamp to [0, 1]
 	if val < 0 {
 		return 0
-	} else if val > 100 {
-		return 100
+	} else if val > maxVal {
+		return maxVal
 	}
 	return val
 }
 
-// mad computes the Median Absolute Deviation of a slice of float64s
-func mad(data []float64) float64 {
-	if len(data) == 0 {
-		return math.NaN()
-	}
-	med := median(data)
-	deviations := make([]float64, len(data))
-	for i, v := range data {
-		deviations[i] = math.Abs(v - med)
-	}
-	return median(deviations)
-}
-
-func exactMad(data []float64, len int) float64 {
-	queue := make([]float64, len, len)
-	for i, val := range data {
-		queue[i] = val
+func exactMad(data []float64) float64 {
+	values := make([]float64, 0, len(data))
+	values = append(values, data...)
+	median := quantile(0.5, values)
+	values = make([]float64, 0, len(data))
+	for _, value := range data {
+		values = append(values, math.Abs(value-median))
 	}
 
-	median := getKth(queue, 0, len, (len-1)/2)
-	fmt.Printf("Median: %f ", median)
-	for i, val := range queue {
-		queue[i] = AbsFloat64(val - median)
-	}
-
-	mad := getKth(queue, 0, len, (len-1)/2)
-
-	return mad
+	return quantile(0.5, values)
 }

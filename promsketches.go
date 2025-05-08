@@ -29,6 +29,7 @@ const (
 	EffSum
 	EffSum2
 	USampling
+	EHCORE
 )
 
 var funcSketchMap = map[string]([]SketchType){
@@ -45,6 +46,7 @@ var funcSketchMap = map[string]([]SketchType){
 	"l1_over_time":       {EHUniv}, // same as count_over_time
 	"l2_over_time":       {EHUniv},
 	"quantile_over_time": {EHKLL},
+	"mad_over_time":      {EHCORE},
 }
 
 // SketchConfig bundles sketch configurations for promsketch
@@ -60,6 +62,7 @@ type SketchConfig struct {
 	// EH_dd_config    EHDDConfig
 	// EffSum_config   EffSumConfig
 	// EffSum2_config  EffSum2Config
+	EH_Core_config  EHCoreConfig
 	Sampling_config SamplingConfig
 }
 
@@ -94,6 +97,13 @@ type SHCountConfig struct {
 type EHCountConfig struct {
 	K                int64
 	Time_window_size int64
+}
+
+type EHCoreConfig struct {
+	K                int64
+	Time_window_size int64
+	Bucket_size      int
+	Threads          int
 }
 
 type EHUnivConfig struct {
@@ -139,6 +149,7 @@ type SketchInstances struct {
 	// shuniv *SmoothHistogramUnivMon
 	ehuniv *ExpoHistogramUnivOptimized
 	ehkll  *ExpoHistogramKLL
+	ehCore *ExpoHistogramCore
 	// ehdd   *ExpoHistogramDD
 	sampling *UniformSampling
 }
@@ -276,6 +287,10 @@ func newSlidingHistorgrams(s *memSeries, stype SketchType, sc *SketchConfig) err
 		s.sketchInstances.ehuniv = ExpoInitUnivOptimized(sc.EH_univ_config.K, sc.EH_univ_config.Time_window_size)
 	}
 
+	if stype == EHCORE && s.sketchInstances.ehCore == nil {
+		s.sketchInstances.ehCore = ExpoInitCore(sc.EH_Core_config.K, sc.EH_Core_config.Time_window_size, sc.EH_Core_config.Bucket_size, sc.EH_Core_config.Threads)
+	}
+
 	/*
 		if stype == EHDD && s.sketchInstances.ehdd == nil {
 			s.sketchInstances.ehdd = ExpoInitDD(sc.EH_dd_config.K, sc.EH_dd_config.Time_window_size, sc.EH_dd_config.DDAccuracy)
@@ -394,6 +409,8 @@ func (ps *PromSketches) NewSketchCacheInstance(lset labels.Labels, funcName stri
 			sc.Sampling_config = SamplingConfig{Sampling_rate: 0.1, Time_window_size: time_window_size, Max_size: int(float64(item_window_size) * 0.1)}
 		case EHKLL:
 			sc.EH_kll_config = EHKLLConfig{K: 50, Time_window_size: time_window_size, Kll_k: 256}
+		case EHCORE:
+			sc.EH_Core_config = EHCoreConfig{K: 50, Time_window_size: time_window_size, Bucket_size: 150000, Threads: 4}
 			/*
 				case EHCount:
 					sc.EH_count_config = EHCountConfig{K: 100, Time_window_size: time_window_size}
@@ -442,6 +459,12 @@ func (ps *PromSketches) PrintCoverage(lset labels.Labels, funcName string) (int6
 			} else {
 				return series.sketchInstances.sampling.GetMinTime(), series.sketchInstances.sampling.GetMaxTime()
 			}
+		case EHCORE:
+			if series.sketchInstances.ehCore == nil {
+				return -1, -1
+			} else {
+				return series.sketchInstances.ehCore.GetMinTime(), series.sketchInstances.ehCore.GetMaxTime()
+			}
 		default:
 			return -1, -1
 		}
@@ -486,6 +509,12 @@ func (ps *PromSketches) LookUp(lset labels.Labels, funcName string, mint, maxt i
 			if series.sketchInstances.sampling == nil {
 				return false
 			} else if series.sketchInstances.sampling.Cover(mint, maxt) == false {
+				return false
+			}
+		case EHCORE:
+			if series.sketchInstances.ehCore == nil {
+				return false
+			} else if series.sketchInstances.ehCore.Cover(mint, maxt) == false {
 				return false
 			}
 		/*
@@ -577,6 +606,16 @@ func (ps *PromSketches) LookUpAndUpdateWindow(lset labels.Labels, funcName strin
 					// fmt.Println("covered time range:", series.sketchInstances.sampling.GetMinTime(), series.sketchInstances.sampling.GetMaxTime())
 					series.sketchInstances.sampling.UpdateWindow(4 * (maxt - mint))
 				}
+				return false
+			}
+		case EHCORE:
+			if series.sketchInstances.ehCore == nil {
+				return false
+			} else if series.sketchInstances.ehCore.Cover(startt, maxt) == false {
+				if series.sketchInstances.ehCore.time_window_size < maxt-mint {
+					series.sketchInstances.ehCore.UpdateWindow(4 * (maxt - mint))
+				}
+
 				return false
 			}
 		default:
@@ -756,6 +795,13 @@ func (ps *PromSketches) SketchInsert(lset labels.Labels, t int64, val float64) e
 			s.oldestTimestamp = t
 		}
 		s.sketchInstances.ehkll.Update(t, val)
+	}
+
+	if s.sketchInstances.ehCore != nil {
+		if s.oldestTimestamp == -1 {
+			s.oldestTimestamp = t
+		}
+		s.sketchInstances.ehCore.Update(t, val)
 	}
 
 	if s.sketchInstances.sampling != nil {

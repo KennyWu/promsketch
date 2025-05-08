@@ -75,6 +75,211 @@ type ExpoHistogramCS struct {
 	time_window_size int64
 }
 
+type ExpoHistogramCore struct {
+	k                int64
+	time_window_size int64
+	s_count          int
+	max_time         []int64
+	min_time         []int64
+	max_idx          []int64
+	min_idx          []int64
+	data             []float64
+	coreBucketSize   int
+	bucketSize       []int64
+	threads          int
+	mutex            sync.RWMutex
+}
+
+/*------------------------------------------------------------------------------
+			CoreSketch Histogram for MAD
+--------------------------------------------------------------------------------*/
+
+func ExpoInitCore(k int64, time_window_size int64, bucketSize int, threads int) (ehCore *ExpoHistogramCore) {
+	ehCore = &ExpoHistogramCore{
+		k:                k,
+		time_window_size: time_window_size,
+		s_count:          0,
+		max_time:         make([]int64, 0),
+		min_time:         make([]int64, 0),
+		max_idx:          make([]int64, 0),
+		min_idx:          make([]int64, 0),
+		coreBucketSize:   bucketSize,
+		bucketSize:       make([]int64, 0),
+		data:             make([]float64, 0),
+		threads:          threads,
+	}
+
+	return ehCore
+}
+
+func (ehCore *ExpoHistogramCore) UpdateWindow(window_size int64) {
+	ehCore.mutex.Lock()
+	ehCore.time_window_size = window_size
+	ehCore.mutex.Unlock()
+}
+
+func (ehCore *ExpoHistogramCore) Update(time int64, value float64) {
+	ehCore.mutex.Lock()
+	defer ehCore.mutex.Unlock()
+
+	removed := 0
+	for i := 0; i < ehCore.s_count; i++ {
+		if ehCore.max_time[i] < time-ehCore.time_window_size {
+			removed++
+		} else {
+			break
+		}
+	}
+
+	if removed > 0 {
+		ehCore.s_count = ehCore.s_count - removed
+		deltaIdx := ehCore.max_idx[removed-1]
+		ehCore.max_time = ehCore.max_time[removed:]
+		ehCore.min_time = ehCore.min_time[removed:]
+		ehCore.min_idx = ehCore.min_idx[removed:]
+		ehCore.max_idx = ehCore.max_idx[removed:]
+		ehCore.bucketSize = ehCore.bucketSize[removed:]
+		for i := 0; i < len(ehCore.max_idx); i++ {
+			ehCore.max_idx[i] -= deltaIdx
+			ehCore.min_idx[i] -= deltaIdx
+		}
+
+		ehCore.data = ehCore.data[deltaIdx:]
+	}
+
+	//Add new bucket
+	idx := len(ehCore.data)
+	ehCore.data = append(ehCore.data, value)
+	ehCore.min_idx = append(ehCore.min_idx, int64(idx))
+	ehCore.max_idx = append(ehCore.max_idx, int64(idx+1))
+	ehCore.bucketSize = append(ehCore.bucketSize, 1)
+	ehCore.max_time = append(ehCore.max_time, time)
+	ehCore.min_time = append(ehCore.min_time, time)
+	ehCore.s_count++
+
+	same_size_bucket := 1
+	for i := ehCore.s_count - 2; i >= 0; i-- {
+		if ehCore.bucketSize[i] == ehCore.bucketSize[i+1] {
+			same_size_bucket += 1
+		} else {
+			if float64(same_size_bucket) >= float64(ehCore.k)/2.0+2 {
+				ehCore.bucketSize[i+1] += ehCore.bucketSize[i+2]
+				ehCore.max_time[i+1] = MaxInt64(ehCore.max_time[i+1], ehCore.max_time[i+2])
+				ehCore.min_time[i+1] = MinInt64(ehCore.min_time[i+1], ehCore.min_time[i+2])
+				ehCore.min_idx[i+1] = MinInt64(ehCore.min_idx[i+2], ehCore.min_idx[i+1])
+				ehCore.max_idx[i+1] = MaxInt64(ehCore.max_idx[i+2], ehCore.max_idx[i+1])
+				ehCore.max_time = append(ehCore.max_time[:i+2], ehCore.max_time[i+3:]...)
+				ehCore.min_time = append(ehCore.min_time[:i+2], ehCore.min_time[i+3:]...)
+				ehCore.bucketSize = append(ehCore.bucketSize[:i+2], ehCore.bucketSize[i+3:]...)
+				ehCore.max_idx = append(ehCore.max_idx[:i+2], ehCore.max_idx[i+3:]...)
+				ehCore.min_idx = append(ehCore.min_idx[:i+2], ehCore.min_idx[i+3:]...)
+				ehCore.s_count -= 1
+			}
+			same_size_bucket = 1
+			if ehCore.bucketSize[i+1] == ehCore.bucketSize[i] {
+				same_size_bucket += 1
+			}
+		}
+	}
+
+	i := 0
+	if float64(same_size_bucket) >= float64(ehCore.k)/2.0+2 {
+		ehCore.bucketSize[i+1] += ehCore.bucketSize[i+2]
+		ehCore.max_time[i+1] = MaxInt64(ehCore.max_time[i+1], ehCore.max_time[i+2])
+		ehCore.min_time[i+1] = MinInt64(ehCore.min_time[i+1], ehCore.min_time[i+2])
+		ehCore.min_idx[i+1] = MinInt64(ehCore.min_idx[i+2], ehCore.min_idx[i+1])
+		ehCore.max_idx[i+1] = MaxInt64(ehCore.max_idx[i+2], ehCore.max_idx[i+1])
+		ehCore.max_time = append(ehCore.max_time[:i+2], ehCore.max_time[i+3:]...)
+		ehCore.min_time = append(ehCore.min_time[:i+2], ehCore.min_time[i+3:]...)
+		ehCore.bucketSize = append(ehCore.bucketSize[:i+2], ehCore.bucketSize[i+3:]...)
+		ehCore.max_idx = append(ehCore.max_idx[:i+2], ehCore.max_idx[i+3:]...)
+		ehCore.min_idx = append(ehCore.min_idx[:i+2], ehCore.min_idx[i+3:]...)
+		ehCore.s_count -= 1
+	}
+
+}
+
+func (ehCore *ExpoHistogramCore) Cover(mint, maxt int64) bool {
+
+	ehCore.mutex.RLock()
+	defer ehCore.mutex.RUnlock()
+	if ehCore.s_count == 0 {
+		return false
+	}
+
+	isCovered := ehCore.max_time[ehCore.s_count-1] >= maxt
+	return isCovered
+}
+
+func (ehCore *ExpoHistogramCore) GetMaxTime() int64 {
+	if ehCore.s_count == 0 {
+		return -1
+	}
+
+	return ehCore.max_time[ehCore.s_count-1]
+}
+
+func (ehCore *ExpoHistogramCore) GetMinTime() int64 {
+	if ehCore.s_count == 0 {
+		return -1
+	}
+
+	return ehCore.min_time[0]
+}
+
+func (ehCore *ExpoHistogramCore) QueryIntervalMergeCore(t1, t2 int64) []float64 {
+	var from_bucket, to_bucket int = 0, 0
+	ehCore.mutex.RLock()
+	defer ehCore.mutex.RUnlock()
+
+	if ehCore.s_count == 0 {
+		return nil
+	}
+
+	for i := 0; i < ehCore.s_count; i++ {
+		if t1 >= ehCore.min_time[i] && t1 <= ehCore.max_time[i] {
+			from_bucket = i
+			break
+		}
+	}
+
+	for i := 0; i < ehCore.s_count; i++ {
+		if t2 >= ehCore.min_time[i] && t2 <= ehCore.max_time[i] {
+			to_bucket = i
+			break
+		}
+	}
+
+	// fmt.Println("t1, t2=", t1, t2)
+	// fmt.Println("min time, max time=", ehkll.min_time[0], ehkll.GetMaxTime())
+
+	if t2 > ehCore.max_time[ehCore.s_count-1] {
+		to_bucket = ehCore.s_count - 1
+	}
+	if t1 < ehCore.min_time[0] {
+		from_bucket = 0
+	}
+	if AbsInt64(t1-ehCore.min_time[from_bucket]) > AbsInt64(t1-ehCore.max_time[from_bucket]) {
+		from_bucket += 1
+	}
+
+	/*
+		fmt.Println("s_count =", ehkll.s_count)
+		fmt.Println("from_bucket =", from_bucket)
+		fmt.Println("to_bucket =", to_bucket)
+	*/
+
+	if to_bucket >= ehCore.s_count {
+		to_bucket = ehCore.s_count - 1
+	}
+
+	if from_bucket < to_bucket {
+		return ehCore.data[ehCore.min_idx[from_bucket]:ehCore.max_idx[to_bucket]]
+	} else {
+		return ehCore.data[ehCore.min_idx[from_bucket]:ehCore.max_idx[from_bucket]]
+	}
+}
+
 /*------------------------------------------------------------------------------
 			Exponential Histogram for KLL
 --------------------------------------------------------------------------------*/
