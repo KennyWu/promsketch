@@ -133,7 +133,7 @@ func (ehCore *ExpoHistogramCore) Update(time int64, value float64) {
 
 	if removed > 0 {
 		ehCore.s_count = ehCore.s_count - removed
-		deltaIdx := ehCore.min_idx[removed]
+		deltaIdx := ehCore.max_idx[removed-1]
 		ehCore.max_time = ehCore.max_time[removed:]
 		ehCore.min_time = ehCore.min_time[removed:]
 		ehCore.min_idx = ehCore.min_idx[removed:]
@@ -144,7 +144,12 @@ func (ehCore *ExpoHistogramCore) Update(time int64, value float64) {
 			ehCore.min_idx[i] -= deltaIdx
 		}
 
-		ehCore.data = ehCore.data[deltaIdx:]
+		if deltaIdx == int64(len(ehCore.data)) {
+			ehCore.data = ehCore.data[len(ehCore.data)-1 : len(ehCore.data)-1]
+		} else {
+			ehCore.data = ehCore.data[deltaIdx:]
+		}
+
 	}
 
 	//Add new bucket
@@ -238,39 +243,39 @@ func (ehCore *ExpoHistogramCore) QueryIntervalMergeCore(t1, t2 int64) []float64 
 	ehCore.mutex.RLock()
 	defer ehCore.mutex.RUnlock()
 
-	var tmp_from_bucket, tmp_to_bucket int = 0,0
-
 	for i := 0; i < ehCore.s_count; i++ {
-		if t1 >= ehCore.min_time[i] {
-			tmp_from_bucket = i
+		if t1 < ehCore.min_time[i] {
+			from_bucket = i - 1
+			break
 		}
 	}
 
-	for i := ehCore.s_count; i >= 0; i-- {
-		if t2 <= ehCore.max_time[i] {
-			tmp_to_bucket = i + 1
+	for i := ehCore.s_count - 1; i >= 0; i-- {
+		if t2 > ehCore.max_time[i] {
+			to_bucket = i + 1
+			break
 		}
 	}
 
-	fmt.Println("tmp_from_bucket, tmp_to_bucket =", tmp_from_bucket, tmp_to_bucket)
+	//fmt.Println("length:", len(ehCore.data[tmp_from_bucket:tmp_to_bucket]))
 
 	if ehCore.s_count == 0 {
 		return nil
 	}
 
-	for i := 0; i < ehCore.s_count; i++ {
-		if t1 >= ehCore.min_time[i] && t1 <= ehCore.max_time[i] {
-			from_bucket = i
-			break
-		}
-	}
-
-	for i := 0; i < ehCore.s_count; i++ {
-		if t2 >= ehCore.min_time[i] && t2 <= ehCore.max_time[i] {
-			to_bucket = i
-			break
-		}
-	}
+	//for i := 0; i < ehCore.s_count; i++ {
+	//	if t1 >= ehCore.min_time[i] && t1 <= ehCore.max_time[i] {
+	//		from_bucket = i
+	//		break
+	//	}
+	//}
+	//
+	//for i := 0; i < ehCore.s_count; i++ {
+	//	if t2 >= ehCore.min_time[i] && t2 <= ehCore.max_time[i] {
+	//		to_bucket = i
+	//		break
+	//	}
+	//}
 
 	// fmt.Println("t1, t2=", t1, t2)
 	// fmt.Println("min time, max time=", ehkll.min_time[0], ehkll.GetMaxTime())
@@ -296,14 +301,14 @@ func (ehCore *ExpoHistogramCore) QueryIntervalMergeCore(t1, t2 int64) []float64 
 	}
 
 	if from_bucket < to_bucket {
-		fmt.Println("from_bucket, to_bucket =", from_bucket, to_bucket)
-		fmt.Println("min_idx, max_idx =", ehCore.min_idx[from_bucket], ehCore.max_idx[to_bucket])
-		fmt.Println("min_time, max_time =", ehCore.min_time[from_bucket], ehCore.max_time[to_bucket])
+		//fmt.Println("from_bucket, to_bucket =", from_bucket, to_bucket)
+		//fmt.Println("min_idx, max_idx =", ehCore.min_idx[from_bucket], ehCore.max_idx[to_bucket])
+		//fmt.Println("min_time, max_time =", ehCore.min_time[from_bucket], ehCore.max_time[to_bucket])
 		return ehCore.data[ehCore.min_idx[from_bucket]:ehCore.max_idx[to_bucket]]
 	} else {
-		fmt.Println("from_bucket, to_bucket =", from_bucket, from_bucket)
-		fmt.Println("min_idx, max_idx =", ehCore.min_idx[from_bucket], ehCore.max_idx[from_bucket])
-		fmt.Println("min_time, max_time =", ehCore.min_time[from_bucket], ehCore.max_time[from_bucket])
+		//fmt.Println("from_bucket, to_bucket =", from_bucket, from_bucket)
+		//fmt.Println("min_idx, max_idx =", ehCore.min_idx[from_bucket], ehCore.max_idx[from_bucket])
+		//fmt.Println("min_time, max_time =", ehCore.min_time[from_bucket], ehCore.max_time[from_bucket])
 		return ehCore.data[ehCore.min_idx[from_bucket]:ehCore.max_idx[from_bucket]]
 	}
 }
@@ -494,13 +499,11 @@ func (ehkll *ExpoHistogramKLL) QueryIntervalMergeKLL(t1, t2 int64) *kll.Sketch {
 	if AbsInt64(t1-ehkll.min_time[from_bucket]) > AbsInt64(t1-ehkll.max_time[from_bucket]) {
 		from_bucket += 1
 	}
-
 	/*
 		fmt.Println("s_count =", ehkll.s_count)
 		fmt.Println("from_bucket =", from_bucket)
 		fmt.Println("to_bucket =", to_bucket)
 	*/
-
 	if to_bucket >= ehkll.s_count {
 		to_bucket = ehkll.s_count - 1
 	}

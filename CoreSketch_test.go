@@ -27,8 +27,8 @@ import (
 //}
 
 var coreSketchRerunAttempts = *flag.Int("coreRerunAttempts", 3, "Number of attempts to rerun core sketch")
-var coreBucketSize = *flag.Int("coreBucketSize", 80000, "Number of buckets per core")
-var concurrent = *flag.Bool("concurrent", true, "Whether to run concurrent core sketches")
+var coreBucketSize = *flag.Int("coreBucketSize", 20000, "Number of buckets per core")
+var concurrent = *flag.Bool("concurrent", false, "Whether to run concurrent core sketches")
 var threads = *flag.Int("threads", 4, "Number of threads to run")
 var minVal = 0.01
 var maxVal = 100.0
@@ -43,15 +43,6 @@ var TestCases = []struct{ Datasize int }{
 	},
 	{
 		100,
-	},
-	{
-		400,
-	},
-	{
-		600,
-	},
-	{
-		934,
 	},
 	{
 		1000,

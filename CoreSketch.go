@@ -137,6 +137,10 @@ func calculateMad(data []float64, sketch *CoreSketch) float64 {
 		medianRank = queueN - 1
 	}
 
+	if medianRank < 0 {
+		medianRank = 0
+	}
+
 	median := getKth(queue, 0, queueN, medianRank)
 	for i, val := range queue {
 		queue[i] = math.Abs(val - median)
@@ -147,6 +151,10 @@ func calculateMad(data []float64, sketch *CoreSketch) float64 {
 	}
 	if madRank >= queueN {
 		madRank = queueN - 1
+	}
+
+	if madRank < 0 {
+		madRank = 0
 	}
 	mad := getKth(queue, 0, queueN, madRank)
 	return mad
